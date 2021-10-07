@@ -451,7 +451,7 @@ MCnet_share1 = [
 
 # The lane line and the driving area segment branches without share information with each other and without link
 YOLOP = [
-[24, 33, 42],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
+[24, 33],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
 [ -1, Focus, [3, 32, 3]],   #0
 [ -1, Conv, [32, 64, 3, 2]],    #1
 [ -1, BottleneckCSP, [64, 64, 1]],  #2
@@ -487,17 +487,7 @@ YOLOP = [
 [ -1, Conv, [32, 16, 3, 1]],    #30
 [ -1, BottleneckCSP, [16, 8, 1, False]],    #31
 [ -1, Upsample, [None, 2, 'nearest']],  #32
-[ -1, Conv, [8, 2, 3, 1]], #33 Driving area segmentation head
-
-[ 16, Conv, [256, 128, 3, 1]],   #34
-[ -1, Upsample, [None, 2, 'nearest']],  #35
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #36
-[ -1, Conv, [64, 32, 3, 1]],    #37
-[ -1, Upsample, [None, 2, 'nearest']],  #38
-[ -1, Conv, [32, 16, 3, 1]],    #39
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #40
-[ -1, Upsample, [None, 2, 'nearest']],  #41
-[ -1, Conv, [8, 2, 3, 1]] #42 Lane line segmentation head
+[ -1, Conv, [8, 2, 3, 1]] #33 Driving area segmentation head
 ]
 
 
@@ -508,7 +498,7 @@ class MCnet(nn.Module):
         self.nc = 1
         self.detector_index = -1
         self.det_out_idx = block_cfg[0][0]
-        self.seg_out_idx = block_cfg[0][1:]
+        self.lane_out_idx = block_cfg[0][1]
         
 
         # Build model
@@ -522,7 +512,8 @@ class MCnet(nn.Module):
             save.extend(x % i for x in ([from_] if isinstance(from_, int) else from_) if x != -1)  # append to savelist
         assert self.detector_index == block_cfg[0][0]
 
-        self.model, self.save = nn.Sequential(*layers), sorted(save)
+        self.model = nn.Sequential(*layers)
+        self.save = sorted(save)
         self.names = [str(i) for i in range(self.nc)]
 
         # set stride、anchor for detector
@@ -547,8 +538,6 @@ class MCnet(nn.Module):
         cache = []
         out = []
         det_out = None
-        Da_fmap = []
-        LL_fmap = []
         for i, block in enumerate(self.model):
             if block.from_ != -1:
                 x = cache[block.from_] if isinstance(block.from_, int) else [x if j == -1 else cache[j] for j in block.from_]       #calculate concat detect
@@ -559,7 +548,7 @@ class MCnet(nn.Module):
             if i == self.detector_index:
                 det_out = x
             cache.append(x if block.index in self.save else None)
-        out.insert(0,det_out)
+        out.insert(0, det_out)
         return out
             
     

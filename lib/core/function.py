@@ -72,9 +72,10 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
             for tgt in target:
                 assign_target.append(tgt.to(device))
             target = assign_target
+            
         with amp.autocast(enabled=device.type != 'cpu'):
             outputs = model(input)
-            total_loss, head_losses = criterion(outputs, target, shapes,model)
+            total_loss, head_losses = criterion(outputs, target, shapes, model)
             # print(head_losses)
 
         # compute gradient and do update step

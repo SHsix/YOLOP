@@ -26,14 +26,14 @@ class BddDataset(AutoDriveDataset):
         mask: path of the segmetation label
         label: [cls_id, center_x//256, center_y//256, w//256, h//256] 256=IMAGE_SIZE
         """
-        print('building database...')
+        print('building BDD Object database...')
         gt_db = []
         height, width = self.shapes
-        for mask in tqdm(list(self.mask_list)):
-            mask_path = str(mask)
-            label_path = mask_path.replace(str(self.mask_root), str(self.label_root)).replace(".png", ".json")
-            image_path = mask_path.replace(str(self.mask_root), str(self.img_root)).replace(".png", ".jpg")
-            lane_path = mask_path.replace(str(self.mask_root), str(self.lane_root))
+        for img in tqdm(list(self.img_list)):
+            image_path = str(img)
+            label_path = image_path.replace(str(self.img_root), str(self.label_root)).replace(".jpg", ".json")
+            # mask_path = str(mask)
+            # lane_path = mask_path.replace(str(self.mask_root), str(self.lane_root))
             with open(label_path, 'r') as f:
                 label = json.load(f)
             data = label['frames'][0]['objects']
@@ -59,9 +59,7 @@ class BddDataset(AutoDriveDataset):
 
             rec = [{
                 'image': image_path,
-                'label': gt,
-                'mask': mask_path,
-                'lane': lane_path
+                'label': gt
             }]
 
             gt_db += rec

@@ -26,11 +26,11 @@ def augment_hsv(img, hgain=0.5, sgain=0.5, vgain=0.5):
     #         img[:, :, i] = cv2.equalizeHist(img[:, :, i])
 
 
-def random_perspective(combination, targets=(), degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0, border=(0, 0)):
+def random_perspective(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0, border=(0, 0)):
     """combination of img transform"""
     # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
     # targets = [cls, xyxy]
-    img, gray, line = combination
+    # img, gray, line = combination
     height = img.shape[0] + border[0] * 2  # shape(h,w,c)
     width = img.shape[1] + border[1] * 2
 
@@ -67,12 +67,12 @@ def random_perspective(combination, targets=(), degrees=10, translate=.1, scale=
     if (border[0] != 0) or (border[1] != 0) or (M != np.eye(3)).any():  # image changed
         if perspective:
             img = cv2.warpPerspective(img, M, dsize=(width, height), borderValue=(114, 114, 114))
-            gray = cv2.warpPerspective(gray, M, dsize=(width, height), borderValue=0)
-            line = cv2.warpPerspective(line, M, dsize=(width, height), borderValue=0)
+            # gray = cv2.warpPerspective(gray, M, dsize=(width, height), borderValue=0)
+            # line = cv2.warpPerspective(line, M, dsize=(width, height), borderValue=0)
         else:  # affine
             img = cv2.warpAffine(img, M[:2], dsize=(width, height), borderValue=(114, 114, 114))
-            gray = cv2.warpAffine(gray, M[:2], dsize=(width, height), borderValue=0)
-            line = cv2.warpAffine(line, M[:2], dsize=(width, height), borderValue=0)
+            # gray = cv2.warpAffine(gray, M[:2], dsize=(width, height), borderValue=0)
+            # line = cv2.warpAffine(line, M[:2], dsize=(width, height), borderValue=0)
 
     # Visualize
     # import matplotlib.pyplot as plt
@@ -115,8 +115,8 @@ def random_perspective(combination, targets=(), degrees=10, translate=.1, scale=
         targets = targets[i]
         targets[:, 1:5] = xy[i]
 
-    combination = (img, gray, line)
-    return combination, targets
+    # combination = (img, gray, line)
+    return img, targets
 
 
 def cutout(combination, labels):
@@ -168,6 +168,17 @@ def cutout(combination, labels):
     return image, gray, labels
 
 
+
+
+
+
+
+
+
+
+'''
+기존 이미지, seg, lane에 대한 조합을 보내서 수정하는 코드
+'''
 def letterbox(combination, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True):
     """Resize the input image and automatically padding to suitable shape :https://zhuanlan.zhihu.com/p/172121380"""
     # Resize image to a 32-pixel-multiple rectangle https://github.com/ultralytics/yolov3/issues/232
@@ -210,6 +221,18 @@ def letterbox(combination, new_shape=(640, 640), color=(114, 114, 114), auto=Tru
     
     combination = (img, gray, line)
     return combination, ratio, (dw, dh)
+
+
+
+
+
+
+
+
+
+
+
+
 
 def letterbox_for_img(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True):
     # Resize image to a 32-pixel-multiple rectangle https://github.com/ultralytics/yolov3/issues/232

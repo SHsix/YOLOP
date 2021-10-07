@@ -136,8 +136,9 @@ def main():
 
     Encoder_para_idx = [str(i) for i in range(0, 17)]
     Det_Head_para_idx = [str(i) for i in range(17, 25)]
-    Da_Seg_Head_para_idx = [str(i) for i in range(25, 34)]
-    Ll_Seg_Head_para_idx = [str(i) for i in range(34,43)]
+    
+    # Da_Seg_Head_para_idx = [str(i) for i in range(25, 34)]
+    # Ll_Seg_Head_para_idx = [str(i) for i in range(34,43)]
 
     lf = lambda x: ((1 + math.cos(x * math.pi / cfg.TRAIN.END_EPOCH)) / 2) * \
                    (1 - cfg.TRAIN.LRF) + cfg.TRAIN.LRF  # cosine
@@ -148,6 +149,9 @@ def main():
         checkpoint_file = os.path.join(
             os.path.join(cfg.LOG_DIR, cfg.DATASET.DATASET), 'checkpoint.pth'
         )
+        
+        # Section for getting any pretrained model
+        
         if os.path.exists(cfg.MODEL.PRETRAINED):
             logger.info("=> loading model '{}'".format(cfg.MODEL.PRETRAINED))
             checkpoint = torch.load(cfg.MODEL.PRETRAINED)
@@ -173,6 +177,8 @@ def main():
             model.load_state_dict(model_dict)
             logger.info("=> loaded det branch checkpoint '{}' ".format(checkpoint_file))
         
+        
+        # Resume the training
         if cfg.AUTO_RESUME and os.path.exists(checkpoint_file):
             logger.info("=> loading checkpoint '{}'".format(checkpoint_file))
             checkpoint = torch.load(checkpoint_file)
@@ -195,14 +201,6 @@ def main():
                     print('freezing %s' % k)
                     v.requires_grad = False
 
-        if cfg.TRAIN.DET_ONLY:  #Only train detection branch
-            logger.info('freeze encoder and two Seg heads...')
-            # print(model.named_parameters)
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers
-                if k.split(".")[1] in Encoder_para_idx + Da_Seg_Head_para_idx + Ll_Seg_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
 
         if cfg.TRAIN.ENC_SEG_ONLY:  # Only train encoder and two segmentation branchs
             logger.info('freeze Det head...')
@@ -212,33 +210,6 @@ def main():
                     print('freezing %s' % k)
                     v.requires_grad = False
 
-        if cfg.TRAIN.ENC_DET_ONLY or cfg.TRAIN.DET_ONLY:    # Only train encoder and detection branchs
-            logger.info('freeze two Seg heads...')
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers
-                if k.split(".")[1] in Da_Seg_Head_para_idx + Ll_Seg_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
-
-
-        if cfg.TRAIN.LANE_ONLY: 
-            logger.info('freeze encoder and Det head and Da_Seg heads...')
-            # print(model.named_parameters)
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers
-                if k.split(".")[1] in Encoder_para_idx + Da_Seg_Head_para_idx + Det_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
-
-        if cfg.TRAIN.DRIVABLE_ONLY:
-            logger.info('freeze encoder and Det head and Ll_Seg heads...')
-            # print(model.named_parameters)
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers
-                if k.split(".")[1] in Encoder_para_idx + Ll_Seg_Head_para_idx + Det_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
-        
     if rank == -1 and torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
         # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
