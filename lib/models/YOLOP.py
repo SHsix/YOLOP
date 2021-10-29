@@ -524,7 +524,7 @@ class MCnet(nn.Module):
             #     print (x.shape)
             with torch.no_grad():
                 model_out = self.forward(torch.zeros(1, 3, s, s))
-                detects, _, _= model_out
+                detects = model_out[0]
                 Detector.stride = torch.tensor([s / x.shape[-2] for x in detects])  # forward
             # print("stride"+str(Detector.stride ))
             Detector.anchors /= Detector.stride.view(-1, 1, 1)  # Set the anchors for the corresponding scale
