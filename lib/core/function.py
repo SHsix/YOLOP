@@ -218,7 +218,7 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
             if batch_i > 0:
                 T_inf.update(t_inf/img.size(0), img.size(0))
 
-            inf_out, train_out = det_out
+            inf_out, train_out = det_out[0]
 
             # #driving area segment evaluation
             # _,da_predict=torch.max(da_seg_out, 1)
