@@ -77,6 +77,8 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
 
         with amp.autocast(enabled=device.type != 'cpu'):
             outputs = model(input)
+            print(len(outputs))
+            print(len(target))
             total_loss, head_losses = criterion(outputs, target, shapes, model)
             # print(head_losses)
 
@@ -212,13 +214,17 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
 
             t = time_synchronized()
             # det_out, da_seg_out, ll_seg_out= model(img)
-            det_out = model(img)
+            det_out = model(img)[0]
 
             t_inf = time_synchronized() - t
             if batch_i > 0:
                 T_inf.update(t_inf/img.size(0), img.size(0))
 
-            inf_out, train_out = det_out[0]
+            inf_out, train_out = det_out
+
+            # outputs = model(input)
+            # total_loss, head_losses = criterion(outputs, target, shapes, model)
+            # # print(head_losses)
 
             # #driving area segment evaluation
             # _,da_predict=torch.max(da_seg_out, 1)
@@ -254,7 +260,7 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
 
             # total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out), target, shapes,model)   #Compute loss
             total_loss, head_losses = criterion(
-                (train_out), target, shapes, model)  # Compute loss
+                train_out, target, shapes, model)  # Compute loss
 
             losses.update(total_loss.item(), img.size(0))
 
