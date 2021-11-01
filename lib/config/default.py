@@ -45,6 +45,7 @@ _C.LOSS.CLS_GAIN = 0.5  # classification loss gain
 _C.LOSS.OBJ_GAIN = 1.0  # object loss gain
 
 # lane detection params
+_C.LANE = CN(new_allowed=True)
 _C.LANE.DATA_ROOT = '/home/YOLOP/datasets/CULane'
 _C.LANE.GRIDING_NUM = 96
 _C.LANE.AUX_SEG = True
