@@ -80,7 +80,6 @@ class MCnet(nn.Module):
         for i, (from_, block, args) in enumerate(block_cfg[1:]):
             if not self.aux_seg and i in range(self.det_out_idx+1, self.lane_seg_idx+1):
                 continue
-            print(type(block))
             block = eval(block) if isinstance(block, str) else block  # eval strings
             if block is Detect:
                 self.detector_index = i
