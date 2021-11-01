@@ -74,9 +74,10 @@ def obj_train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num
             for tgt in target:
                 assign_target.append(tgt.to(device))
             target = assign_target
-        print(len(outputs))
+       
         with amp.autocast(enabled=device.type != 'cpu'):
             outputs, _ = model(input)
+            print(len(outputs))
             total_loss, head_losses = criterion(outputs, target, shapes, model)
             # print(head_losses)
 
