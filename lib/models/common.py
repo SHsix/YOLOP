@@ -168,7 +168,25 @@ class Concat(nn.Module):
         for f in x:
             print(f.shape) """
         return torch.cat(x, self.d)
-
+    
+class Detect_lane(nn.Module):
+    # Concatenate a list of tensors along dimension
+    def __init__(self, cls_dim=(97, 18, 4)):
+        super(Detect_lane, self).__init__()
+        self.pool = torch.nn.Conv2d(256, 8, 1)
+        self.total_dim = np.prod(cls_dim)
+        self.cls_dim = cls_dim
+        self.cls = torch.nn.Sequential(
+            torch.nn.Linear(8 * 32 * 32, 1024),
+            torch.nn.ReLU(),
+            torch.nn.Linear(1024, self.total_dim),
+        )
+        
+    def forward(self, x):
+        x = self.pool(x).view(-1, 8 * 32 * 32)
+        x = self.cls(x).view(-1, *self.cls_dim)
+        
+        return torch.cat(x, self.d)
 
 class Detect(nn.Module):
     stride = None  # strides computed during build

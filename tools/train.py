@@ -24,7 +24,7 @@ import lib.dataset as dataset
 from lib.config import cfg
 from lib.config import update_config
 from lib.core.loss import get_loss
-from lib.core.function import train
+from lib.core.function import obj_train, lane_train
 from lib.core.function import validate
 from lib.core.general import fitness
 from lib.models import get_net
@@ -136,7 +136,7 @@ def main():
 
     Encoder_para_idx = [str(i) for i in range(0, 17)]
     Det_Head_para_idx = [str(i) for i in range(17, 25)]
-    
+    lane_Head_para_idx = [str(i) for i in range(25, 35)]
     # Da_Seg_Head_para_idx = [str(i) for i in range(25, 34)]
     # Ll_Seg_Head_para_idx = [str(i) for i in range(34,43)]
 
@@ -193,22 +193,13 @@ def main():
             #cfg.NEED_AUTOANCHOR = False     #disable autoanchor
         # model = model.to(device)
 
-        if cfg.TRAIN.SEG_ONLY:  #Only train two segmentation branchs
-            logger.info('freeze encoder and Det head...')
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers
-                if k.split(".")[1] in Encoder_para_idx + Det_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
-
-
-        if cfg.TRAIN.ENC_SEG_ONLY:  # Only train encoder and two segmentation branchs
-            logger.info('freeze Det head...')
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers 
-                if k.split(".")[1] in Det_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
+ 
+        logger.info('freeze lane detection head...')
+        for k, v in model.named_parameters():
+            v.requires_grad = True  # train all layers
+            if k.split(".")[1] in lane_Head_para_idx:
+                print('freezing %s' % k)
+                v.requires_grad = False
 
     if rank == -1 and torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
@@ -223,7 +214,7 @@ def main():
     model.nc = 1
     # print('bulid model finished')
 
-    print("begin to load data")
+    print("begin to load object detection data")
     # Data loading
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -290,7 +281,7 @@ def main():
         if rank != -1:
             train_loader.sampler.set_epoch(epoch)
         # train for one epoch
-        train(cfg, train_loader, model, criterion, optimizer, scaler,
+        obj_train(cfg, train_loader, model, criterion, optimizer, scaler,
               epoch, num_batch, num_warmup, writer_dict, logger, device, rank)
         
         lr_scheduler.step()
@@ -343,7 +334,33 @@ def main():
                 output_dir=os.path.join(cfg.LOG_DIR, cfg.DATASET.DATASET),
                 filename='checkpoint.pth'
             )
+            
+    if rank in [-1, 0]:
+        logger.info('freeze lane detection head...')
+        for k, v in model.named_parameters():
+            v.requires_grad = True  # train all layers
+            if k.split(".")[1] in Det_Head_para_idx:
+                print('freezing %s' % k)
+                v.requires_grad = False
 
+    from data.dataloader import get_train_loader
+        
+    from utils.dist_utils import dist_print, dist_tqdm, is_main_process, DistSummaryWriter
+    from utils.factory import get_metric_dict, get_loss_dict
+    from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU, update_metrics, reset_metrics
+
+    from utils.common import merge_config, save_model, cp_projects
+    from utils.common import get_work_dir, get_logger
+    print("begin to load lane data")              
+    train_loader, cls_num_per_lane = get_train_loader(cfg.batch_size, cfg.data_root, cfg.griding_num, cfg.dataset, cfg.use_aux, distributed, cfg.num_lanes)
+    metric_dict = get_metric_dict(cfg)
+    loss_dict = get_loss_dict(cfg)
+    for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
+         lane_train(model, train_loader, loss_dict, optimizer, lr_scheduler,logger, epoch, metric_dict, cfg.use_aux)
+                
+            
+            
+            
     # save final model
     if rank in [-1, 0]:
         final_model_state_file = os.path.join(
@@ -357,6 +374,7 @@ def main():
         writer_dict['writer'].close()
     else:
         dist.destroy_process_group()
+
 
 
 if __name__ == '__main__':

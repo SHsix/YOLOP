@@ -18,7 +18,7 @@ from torch.cuda import amp
 from tqdm import tqdm
 
 
-def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_batch, num_warmup,
+def obj_train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_batch, num_warmup,
           writer_dict, logger, device, rank=-1):
     """
     train for one epoch
@@ -76,7 +76,7 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
             target = assign_target
 
         with amp.autocast(enabled=device.type != 'cpu'):
-            outputs = model(input)
+            outputs, _ = model(input)
             total_loss, head_losses = criterion(outputs, target, shapes, model)
             # print(head_losses)
 
@@ -180,14 +180,6 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
 
     losses = AverageMeter()
 
-    # da_acc_seg = AverageMeter()
-    # da_IoU_seg = AverageMeter()
-    # da_mIoU_seg = AverageMeter()
-
-    # ll_acc_seg = AverageMeter()
-    # ll_IoU_seg = AverageMeter()
-    # ll_mIoU_seg = AverageMeter()
-
     T_inf = AverageMeter()
     T_nms = AverageMeter()
 
@@ -212,7 +204,7 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
 
             t = time_synchronized()
             # det_out, da_seg_out, ll_seg_out= model(img)
-            det_out = model(img)[0]
+            det_out, _ = model(img)
 
             t_inf = time_synchronized() - t
             if batch_i > 0:
@@ -245,39 +237,6 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
                 if batch_i == 0:
                     for i in range(test_batch_size):
                         img_test = cv2.imread(paths[i])
-                        # da_seg_mask = da_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
-                        # da_seg_mask = torch.nn.functional.interpolate(da_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
-                        # _, da_seg_mask = torch.max(da_seg_mask, 1)
-
-                        # da_gt_mask = target[1][i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
-                        # da_gt_mask = torch.nn.functional.interpolate(da_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
-                        # _, da_gt_mask = torch.max(da_gt_mask, 1)
-
-                        # da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
-                        # da_gt_mask = da_gt_mask.int().squeeze().cpu().numpy()
-                        # # seg_mask = seg_mask > 0.5
-                        # # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
-                        # img_test1 = img_test.copy()
-                        # _ = show_seg_result(img_test, da_seg_mask, i,epoch,save_dir)
-                        # _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, is_gt=True)
-
-                        # img_ll = cv2.imread(paths[i])
-                        # ll_seg_mask = ll_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
-                        # ll_seg_mask = torch.nn.functional.interpolate(ll_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
-                        # _, ll_seg_mask = torch.max(ll_seg_mask, 1)
-
-                        # ll_gt_mask = target[2][i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
-                        # ll_gt_mask = torch.nn.functional.interpolate(ll_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
-                        # _, ll_gt_mask = torch.max(ll_gt_mask, 1)
-
-                        # ll_seg_mask = ll_seg_mask.int().squeeze().cpu().numpy()
-                        # ll_gt_mask = ll_gt_mask.int().squeeze().cpu().numpy()
-                        # # seg_mask = seg_mask > 0.5
-                        # # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
-                        # img_ll1 = img_ll.copy()
-                        # _ = show_seg_result(img_ll, ll_seg_mask, i,epoch,save_dir, is_ll=True)
-                        # _ = show_seg_result(img_ll1, ll_gt_mask, i, epoch, save_dir, is_ll=True, is_gt=True)
-
                         img_det = cv2.imread(paths[i])
                         img_gt = img_det.copy()
                         det = output[i].clone()
@@ -525,3 +484,94 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count if self.count != 0 else 0
+
+
+import torch, os, datetime
+import numpy as np
+
+from model.model import parsingNet
+from data.dataloader import get_train_loader
+
+from utils.dist_utils import dist_print, dist_tqdm, is_main_process, DistSummaryWriter
+from utils.factory import get_metric_dict, get_loss_dict, get_optimizer, get_scheduler
+from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU, update_metrics, reset_metrics
+
+from utils.common import merge_config, save_model, cp_projects
+from utils.common import get_work_dir, get_logger
+
+import time
+
+
+def inference(net, data_label, use_aux):
+    if use_aux:
+        img, cls_label, seg_label = data_label
+        img, cls_label, seg_label = img.cuda(), cls_label.long().cuda(), seg_label.long().cuda()
+        cls_out, seg_out = net(img)
+        print(cls_out.shape, seg_out.shape)
+        return {'cls_out': cls_out, 'cls_label': cls_label, 'seg_out':seg_out, 'seg_label': seg_label}
+    else:
+        img, cls_label = data_label
+        img, cls_label = img.cuda(), cls_label.long().cuda()
+        cls_out = net(img)
+        return {'cls_out': cls_out, 'cls_label': cls_label}
+
+
+def resolve_val_data(results, use_aux):
+    results['cls_out'] = torch.argmax(results['cls_out'], dim=1)
+    if use_aux:
+        results['seg_out'] = torch.argmax(results['seg_out'], dim=1)
+    return results
+
+
+def calc_loss(loss_dict, results, logger, global_step):
+    loss = 0
+
+    for i in range(len(loss_dict['name'])):
+
+        data_src = loss_dict['data_src'][i]
+
+        datas = [results[src] for src in data_src]
+
+        loss_cur = loss_dict['op'][i](*datas)
+
+        if global_step % 20 == 0:
+            logger.add_scalar('loss/'+loss_dict['name'][i], loss_cur, global_step)
+
+        loss += loss_cur * loss_dict['weight'][i]
+    return loss
+
+
+def lane_train(net, data_loader, loss_dict, optimizer, scheduler,logger, epoch, metric_dict, use_aux):
+    net.train()
+    progress_bar = dist_tqdm(data_loader)
+    t_data_0 = time.time()
+    for b_idx, data_label in enumerate(progress_bar):
+        t_data_1 = time.time()
+        reset_metrics(metric_dict)
+        global_step = epoch * len(data_loader) + b_idx
+
+        t_net_0 = time.time()
+        results = inference(net, data_label, use_aux)
+
+        loss = calc_loss(loss_dict, results, logger, global_step)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        scheduler.step(global_step)
+        t_net_1 = time.time()
+
+        results = resolve_val_data(results, use_aux)
+
+        update_metrics(metric_dict, results)
+        if global_step % 20 == 0:
+            for me_name, me_op in zip(metric_dict['name'], metric_dict['op']):
+                logger.add_scalar('metric/' + me_name, me_op.get(), global_step=global_step)
+        logger.add_scalar('meta/lr', optimizer.param_groups[0]['lr'], global_step=global_step)
+
+        if hasattr(progress_bar,'set_postfix'):
+            kwargs = {me_name: '%.3f' % me_op.get() for me_name, me_op in zip(metric_dict['name'], metric_dict['op'])}
+            progress_bar.set_postfix(loss = '%.3f' % float(loss), 
+                                    data_time = '%.3f' % float(t_data_1 - t_data_0), 
+                                    net_time = '%.3f' % float(t_net_1 - t_net_0), 
+                                    **kwargs)
+        t_data_0 = time.time()

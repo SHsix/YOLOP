@@ -11,447 +11,17 @@ sys.path.append(os.getcwd())
 from lib.utils import initialize_weights
 # from lib.models.common2 import DepthSeperabelConv2d as Conv
 # from lib.models.common2 import SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect
-from lib.models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv
+from lib.models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv, Detect_lane
 from torch.nn import Upsample
 from lib.utils import check_anchor_order
 from lib.core.evaluate import SegmentationMetric
 from lib.utils.utils import time_synchronized
 
-"""
-MCnet_SPP = [
-[ -1, Focus, [3, 32, 3]],
-[ -1, Conv, [32, 64, 3, 2]],
-[ -1, BottleneckCSP, [64, 64, 1]],
-[ -1, Conv, [64, 128, 3, 2]],
-[ -1, BottleneckCSP, [128, 128, 3]],
-[ -1, Conv, [128, 256, 3, 2]],
-[ -1, BottleneckCSP, [256, 256, 3]],
-[ -1, Conv, [256, 512, 3, 2]],
-[ -1, SPP, [512, 512, [5, 9, 13]]],
-[ -1, BottleneckCSP, [512, 512, 1, False]],
-[ -1, Conv,[512, 256, 1, 1]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ [-1, 6], Concat, [1]],
-[ -1, BottleneckCSP, [512, 256, 1, False]],
-[ -1, Conv, [256, 128, 1, 1]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ [-1,4], Concat, [1]],
-[ -1, BottleneckCSP, [256, 128, 1, False]],
-[ -1, Conv, [128, 128, 3, 2]],
-[ [-1, 14], Concat, [1]],
-[ -1, BottleneckCSP, [256, 256, 1, False]],
-[ -1, Conv, [256, 256, 3, 2]],
-[ [-1, 10], Concat, [1]],
-[ -1, BottleneckCSP, [512, 512, 1, False]],
-# [ [17, 20, 23], Detect,  [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]],
-[ [17, 20, 23], Detect,  [13, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]],
-[ 17, Conv, [128, 64, 3, 1]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ [-1,2], Concat, [1]],
-[ -1, BottleneckCSP, [128, 64, 1, False]],
-[ -1, Conv, [64, 32, 3, 1]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ -1, Conv, [32, 16, 3, 1]],
-[ -1, BottleneckCSP, [16, 8, 1, False]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ -1, SPP, [8, 2, [5, 9, 13]]] #segmentation output
-]
-# [2,6,3,9,5,13], [7,19,11,26,17,39], [28,64,44,103,61,183]
-
-MCnet_0 = [
-[ -1, Focus, [3, 32, 3]],
-[ -1, Conv, [32, 64, 3, 2]],
-[ -1, BottleneckCSP, [64, 64, 1]],
-[ -1, Conv, [64, 128, 3, 2]],
-[ -1, BottleneckCSP, [128, 128, 3]],
-[ -1, Conv, [128, 256, 3, 2]],
-[ -1, BottleneckCSP, [256, 256, 3]],
-[ -1, Conv, [256, 512, 3, 2]],
-[ -1, SPP, [512, 512, [5, 9, 13]]],
-[ -1, BottleneckCSP, [512, 512, 1, False]],
-[ -1, Conv,[512, 256, 1, 1]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ [-1, 6], Concat, [1]],
-[ -1, BottleneckCSP, [512, 256, 1, False]],
-[ -1, Conv, [256, 128, 1, 1]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ [-1,4], Concat, [1]],
-[ -1, BottleneckCSP, [256, 128, 1, False]],
-[ -1, Conv, [128, 128, 3, 2]],
-[ [-1, 14], Concat, [1]],
-[ -1, BottleneckCSP, [256, 256, 1, False]],
-[ -1, Conv, [256, 256, 3, 2]],
-[ [-1, 10], Concat, [1]],
-[ -1, BottleneckCSP, [512, 512, 1, False]],
-[ [17, 20, 23], Detect,  [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]], #Detect output 24
-
-[ 16, Conv, [128, 64, 3, 1]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ [-1,2], Concat, [1]],
-[ -1, BottleneckCSP, [128, 64, 1, False]],
-[ -1, Conv, [64, 32, 3, 1]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ -1, Conv, [32, 16, 3, 1]],
-[ -1, BottleneckCSP, [16, 8, 1, False]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ -1, Conv, [8, 2, 3, 1]], #Driving area segmentation output
-
-[ 16, Conv, [128, 64, 3, 1]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ [-1,2], Concat, [1]],
-[ -1, BottleneckCSP, [128, 64, 1, False]],
-[ -1, Conv, [64, 32, 3, 1]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ -1, Conv, [32, 16, 3, 1]],
-[ -1, BottleneckCSP, [16, 8, 1, False]],
-[ -1, Upsample, [None, 2, 'nearest']],
-[ -1, Conv, [8, 2, 3, 1]], #Lane line segmentation output
-]
-
-
-# The lane line and the driving area segment branches share information with each other
-MCnet_share = [
-[ -1, Focus, [3, 32, 3]],   #0
-[ -1, Conv, [32, 64, 3, 2]],    #1
-[ -1, BottleneckCSP, [64, 64, 1]],  #2
-[ -1, Conv, [64, 128, 3, 2]],   #3
-[ -1, BottleneckCSP, [128, 128, 3]],    #4
-[ -1, Conv, [128, 256, 3, 2]],  #5
-[ -1, BottleneckCSP, [256, 256, 3]],    #6
-[ -1, Conv, [256, 512, 3, 2]],  #7
-[ -1, SPP, [512, 512, [5, 9, 13]]],     #8
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #9
-[ -1, Conv,[512, 256, 1, 1]],   #10
-[ -1, Upsample, [None, 2, 'nearest']],  #11
-[ [-1, 6], Concat, [1]],    #12
-[ -1, BottleneckCSP, [512, 256, 1, False]], #13
-[ -1, Conv, [256, 128, 1, 1]],  #14
-[ -1, Upsample, [None, 2, 'nearest']],  #15
-[ [-1,4], Concat, [1]],     #16
-[ -1, BottleneckCSP, [256, 128, 1, False]],     #17
-[ -1, Conv, [128, 128, 3, 2]],      #18
-[ [-1, 14], Concat, [1]],       #19
-[ -1, BottleneckCSP, [256, 256, 1, False]],     #20
-[ -1, Conv, [256, 256, 3, 2]],      #21
-[ [-1, 10], Concat, [1]],   #22
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #23
-[ [17, 20, 23], Detect,  [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]], #Detect output 24
-
-[ 16, Conv, [256, 64, 3, 1]],   #25
-[ -1, Upsample, [None, 2, 'nearest']],  #26
-[ [-1,2], Concat, [1]],  #27
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #28
-[ -1, Conv, [64, 32, 3, 1]],    #29
-[ -1, Upsample, [None, 2, 'nearest']],  #30
-[ -1, Conv, [32, 16, 3, 1]],    #31
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #32 driving area segment neck
-
-[ 16, Conv, [256, 64, 3, 1]],   #33
-[ -1, Upsample, [None, 2, 'nearest']],  #34
-[ [-1,2], Concat, [1]], #35
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #36
-[ -1, Conv, [64, 32, 3, 1]],    #37
-[ -1, Upsample, [None, 2, 'nearest']],  #38
-[ -1, Conv, [32, 16, 3, 1]],    #39   
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #40 lane line segment neck
-
-[ [31,39], Concat, [1]],    #41
-[ -1, Conv, [32, 8, 3, 1]],     #42    Share_Block
-
-
-[ [32,42], Concat, [1]],     #43
-[ -1, Upsample, [None, 2, 'nearest']],  #44
-[ -1, Conv, [16, 2, 3, 1]], #45 Driving area segmentation output
-
-
-[ [40,42], Concat, [1]],    #46
-[ -1, Upsample, [None, 2, 'nearest']],  #47
-[ -1, Conv, [16, 2, 3, 1]] #48Lane line segmentation output
-]
-
-# The lane line and the driving area segment branches without share information with each other
-MCnet_no_share = [
-[ -1, Focus, [3, 32, 3]],   #0
-[ -1, Conv, [32, 64, 3, 2]],    #1
-[ -1, BottleneckCSP, [64, 64, 1]],  #2
-[ -1, Conv, [64, 128, 3, 2]],   #3
-[ -1, BottleneckCSP, [128, 128, 3]],    #4
-[ -1, Conv, [128, 256, 3, 2]],  #5
-[ -1, BottleneckCSP, [256, 256, 3]],    #6
-[ -1, Conv, [256, 512, 3, 2]],  #7
-[ -1, SPP, [512, 512, [5, 9, 13]]],     #8
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #9
-[ -1, Conv,[512, 256, 1, 1]],   #10
-[ -1, Upsample, [None, 2, 'nearest']],  #11
-[ [-1, 6], Concat, [1]],    #12
-[ -1, BottleneckCSP, [512, 256, 1, False]], #13
-[ -1, Conv, [256, 128, 1, 1]],  #14
-[ -1, Upsample, [None, 2, 'nearest']],  #15
-[ [-1,4], Concat, [1]],     #16
-[ -1, BottleneckCSP, [256, 128, 1, False]],     #17
-[ -1, Conv, [128, 128, 3, 2]],      #18
-[ [-1, 14], Concat, [1]],       #19
-[ -1, BottleneckCSP, [256, 256, 1, False]],     #20
-[ -1, Conv, [256, 256, 3, 2]],      #21
-[ [-1, 10], Concat, [1]],   #22
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #23
-[ [17, 20, 23], Detect,  [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]], #Detect output 24
-
-[ 16, Conv, [256, 64, 3, 1]],   #25
-[ -1, Upsample, [None, 2, 'nearest']],  #26
-[ [-1,2], Concat, [1]],  #27
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #28
-[ -1, Conv, [64, 32, 3, 1]],    #29
-[ -1, Upsample, [None, 2, 'nearest']],  #30
-[ -1, Conv, [32, 16, 3, 1]],    #31
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #32 driving area segment neck
-[ -1, Upsample, [None, 2, 'nearest']],  #33
-[ -1, Conv, [8, 3, 3, 1]], #34 Driving area segmentation output
-
-[ 16, Conv, [256, 64, 3, 1]],   #35
-[ -1, Upsample, [None, 2, 'nearest']],  #36
-[ [-1,2], Concat, [1]], #37
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #38
-[ -1, Conv, [64, 32, 3, 1]],    #39
-[ -1, Upsample, [None, 2, 'nearest']],  #40
-[ -1, Conv, [32, 16, 3, 1]],    #41
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #42 lane line segment neck
-[ -1, Upsample, [None, 2, 'nearest']],  #43
-[ -1, Conv, [8, 2, 3, 1]] #44 Lane line segmentation output
-]
-
-MCnet_feedback = [
-[ -1, Focus, [3, 32, 3]],   #0
-[ -1, Conv, [32, 64, 3, 2]],    #1
-[ -1, BottleneckCSP, [64, 64, 1]],  #2
-[ -1, Conv, [64, 128, 3, 2]],   #3
-[ -1, BottleneckCSP, [128, 128, 3]],    #4
-[ -1, Conv, [128, 256, 3, 2]],  #5
-[ -1, BottleneckCSP, [256, 256, 3]],    #6
-[ -1, Conv, [256, 512, 3, 2]],  #7
-[ -1, SPP, [512, 512, [5, 9, 13]]],     #8
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #9
-[ -1, Conv,[512, 256, 1, 1]],   #10
-[ -1, Upsample, [None, 2, 'nearest']],  #11
-[ [-1, 6], Concat, [1]],    #12
-[ -1, BottleneckCSP, [512, 256, 1, False]], #13
-[ -1, Conv, [256, 128, 1, 1]],  #14
-[ -1, Upsample, [None, 2, 'nearest']],  #15
-[ [-1,4], Concat, [1]],     #16
-[ -1, BottleneckCSP, [256, 128, 1, False]],     #17
-[ -1, Conv, [128, 128, 3, 2]],      #18
-[ [-1, 14], Concat, [1]],       #19
-[ -1, BottleneckCSP, [256, 256, 1, False]],     #20
-[ -1, Conv, [256, 256, 3, 2]],      #21
-[ [-1, 10], Concat, [1]],   #22
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #23
-[ [17, 20, 23], Detect,  [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]], #Detect output 24
-
-[ 16, Conv, [256, 128, 3, 1]],   #25
-[ -1, Upsample, [None, 2, 'nearest']],  #26
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #28
-[ -1, Conv, [64, 32, 3, 1]],    #29
-[ -1, Upsample, [None, 2, 'nearest']],  #30
-[ -1, Conv, [32, 16, 3, 1]],    #31
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #32 driving area segment neck
-[ -1, Upsample, [None, 2, 'nearest']],  #33
-[ -1, Conv, [8, 2, 3, 1]], #34 Driving area segmentation output
-
-[ 16, Conv, [256, 128, 3, 1]],   #35
-[ -1, Upsample, [None, 2, 'nearest']],  #36
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #38
-[ -1, Conv, [64, 32, 3, 1]],    #39
-[ -1, Upsample, [None, 2, 'nearest']],  #40
-[ -1, Conv, [32, 16, 3, 1]],    #41
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #42 lane line segment neck
-[ -1, Upsample, [None, 2, 'nearest']],  #43
-[ -1, Conv, [8, 2, 3, 1]] #44 Lane line segmentation output
-]
-
-
-MCnet_Da_feedback1 = [
-[46, 26, 35],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
-[ -1, Focus, [3, 32, 3]],   #0
-[ -1, Conv, [32, 64, 3, 2]],    #1
-[ -1, BottleneckCSP, [64, 64, 1]],  #2
-[ -1, Conv, [64, 128, 3, 2]],   #3
-[ -1, BottleneckCSP, [128, 128, 3]],    #4
-[ -1, Conv, [128, 256, 3, 2]],  #5
-[ -1, BottleneckCSP, [256, 256, 3]],    #6
-[ -1, Conv, [256, 512, 3, 2]],  #7
-[ -1, SPP, [512, 512, [5, 9, 13]]],     #8
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #9
-[ -1, Conv,[512, 256, 1, 1]],   #10
-[ -1, Upsample, [None, 2, 'nearest']],  #11
-[ [-1, 6], Concat, [1]],    #12
-[ -1, BottleneckCSP, [512, 256, 1, False]], #13
-[ -1, Conv, [256, 128, 1, 1]],  #14
-[ -1, Upsample, [None, 2, 'nearest']],  #15
-[ [-1,4], Concat, [1]],     #16     backbone+fpn
-[ -1,Conv,[256,256,1,1]],   #17
-
-
-[ 16, Conv, [256, 128, 3, 1]],   #18
-[ -1, Upsample, [None, 2, 'nearest']],  #19
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #20
-[ -1, Conv, [64, 32, 3, 1]],    #21
-[ -1, Upsample, [None, 2, 'nearest']],  #22
-[ -1, Conv, [32, 16, 3, 1]],    #23
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #24 driving area segment neck
-[ -1, Upsample, [None, 2, 'nearest']],  #25
-[ -1, Conv, [8, 2, 3, 1]], #26 Driving area segmentation output
-
-
-[ 16, Conv, [256, 128, 3, 1]],   #27
-[ -1, Upsample, [None, 2, 'nearest']],  #28
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #29
-[ -1, Conv, [64, 32, 3, 1]],    #30
-[ -1, Upsample, [None, 2, 'nearest']],  #31
-[ -1, Conv, [32, 16, 3, 1]],    #32
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #33 lane line segment neck
-[ -1, Upsample, [None, 2, 'nearest']],  #34
-[ -1, Conv, [8, 2, 3, 1]], #35Lane line segmentation output
-
-
-[ 23, Conv, [16, 16, 3, 2]],     #36
-[ -1, Conv, [16, 32, 3, 2]],    #2 times 2xdownsample    37
-
-[ [-1,17], Concat, [1]],       #38
-[ -1, BottleneckCSP, [288, 128, 1, False]],    #39
-[ -1, Conv, [128, 128, 3, 2]],      #40
-[ [-1, 14], Concat, [1]],       #41
-[ -1, BottleneckCSP, [256, 256, 1, False]],     #42
-[ -1, Conv, [256, 256, 3, 2]],      #43
-[ [-1, 10], Concat, [1]],   #44
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #45
-[ [39, 42, 45], Detect,  [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]] #Detect output 46
-]
-
-
-
-# The lane line and the driving area segment branches share information with each other and feedback to det_head
-MCnet_Da_feedback2 = [
-[47, 26, 35],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
-[25, 28, 31, 33],   #layer in Da_branch to do SAD
-[34, 37, 40, 42],   #layer in LL_branch to do SAD
-[ -1, Focus, [3, 32, 3]],   #0
-[ -1, Conv, [32, 64, 3, 2]],    #1
-[ -1, BottleneckCSP, [64, 64, 1]],  #2
-[ -1, Conv, [64, 128, 3, 2]],   #3
-[ -1, BottleneckCSP, [128, 128, 3]],    #4
-[ -1, Conv, [128, 256, 3, 2]],  #5
-[ -1, BottleneckCSP, [256, 256, 3]],    #6
-[ -1, Conv, [256, 512, 3, 2]],  #7
-[ -1, SPP, [512, 512, [5, 9, 13]]],     #8
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #9
-[ -1, Conv,[512, 256, 1, 1]],   #10
-[ -1, Upsample, [None, 2, 'nearest']],  #11
-[ [-1, 6], Concat, [1]],    #12
-[ -1, BottleneckCSP, [512, 256, 1, False]], #13
-[ -1, Conv, [256, 128, 1, 1]],  #14
-[ -1, Upsample, [None, 2, 'nearest']],  #15
-[ [-1,4], Concat, [1]],     #16     backbone+fpn
-[ -1,Conv,[256,256,1,1]],   #17
-
-
-[ 16, Conv, [256, 128, 3, 1]],   #18
-[ -1, Upsample, [None, 2, 'nearest']],  #19
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #20
-[ -1, Conv, [64, 32, 3, 1]],    #21
-[ -1, Upsample, [None, 2, 'nearest']],  #22
-[ -1, Conv, [32, 16, 3, 1]],    #23
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #24 driving area segment neck
-[ -1, Upsample, [None, 2, 'nearest']],  #25
-[ -1, Conv, [8, 2, 3, 1]], #26 Driving area segmentation output
-
-
-[ 16, Conv, [256, 128, 3, 1]],   #27
-[ -1, Upsample, [None, 2, 'nearest']],  #28
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #29
-[ -1, Conv, [64, 32, 3, 1]],    #30
-[ -1, Upsample, [None, 2, 'nearest']],  #31
-[ -1, Conv, [32, 16, 3, 1]],    #32
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #33 lane line segment neck
-[ -1, Upsample, [None, 2, 'nearest']],  #34
-[ -1, Conv, [8, 2, 3, 1]], #35Lane line segmentation output
-
-
-[ 23, Conv, [16, 64, 3, 2]],     #36
-[ -1, Conv, [64, 256, 3, 2]],    #2 times 2xdownsample    37
-
-[ [-1,17], Concat, [1]],       #38
-
-[-1, Conv, [512, 256, 3, 1]],     #39
-[ -1, BottleneckCSP, [256, 128, 1, False]],    #40
-[ -1, Conv, [128, 128, 3, 2]],      #41
-[ [-1, 14], Concat, [1]],       #42
-[ -1, BottleneckCSP, [256, 256, 1, False]],     #43
-[ -1, Conv, [256, 256, 3, 2]],      #44
-[ [-1, 10], Concat, [1]],   #45
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #46
-[ [40, 42, 45], Detect,  [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]] #Detect output 47
-]
-
-MCnet_share1 = [
-[24, 33, 45],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
-[25, 28, 31, 33],   #layer in Da_branch to do SAD
-[34, 37, 40, 42],   #layer in LL_branch to do SAD
-[ -1, Focus, [3, 32, 3]],   #0
-[ -1, Conv, [32, 64, 3, 2]],    #1
-[ -1, BottleneckCSP, [64, 64, 1]],  #2
-[ -1, Conv, [64, 128, 3, 2]],   #3
-[ -1, BottleneckCSP, [128, 128, 3]],    #4
-[ -1, Conv, [128, 256, 3, 2]],  #5
-[ -1, BottleneckCSP, [256, 256, 3]],    #6
-[ -1, Conv, [256, 512, 3, 2]],  #7
-[ -1, SPP, [512, 512, [5, 9, 13]]],     #8
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #9
-[ -1, Conv,[512, 256, 1, 1]],   #10
-[ -1, Upsample, [None, 2, 'nearest']],  #11
-[ [-1, 6], Concat, [1]],    #12
-[ -1, BottleneckCSP, [512, 256, 1, False]], #13
-[ -1, Conv, [256, 128, 1, 1]],  #14
-[ -1, Upsample, [None, 2, 'nearest']],  #15
-[ [-1,4], Concat, [1]],     #16
-[ -1, BottleneckCSP, [256, 128, 1, False]],     #17
-[ -1, Conv, [128, 128, 3, 2]],      #18
-[ [-1, 14], Concat, [1]],       #19
-[ -1, BottleneckCSP, [256, 256, 1, False]],     #20
-[ -1, Conv, [256, 256, 3, 2]],      #21
-[ [-1, 10], Concat, [1]],   #22
-[ -1, BottleneckCSP, [512, 512, 1, False]],     #23
-[ [17, 20, 23], Detect,  [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]], #Detect output 24
-
-[ 16, Conv, [256, 128, 3, 1]],   #25
-[ -1, Upsample, [None, 2, 'nearest']],  #26
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #27
-[ -1, Conv, [64, 32, 3, 1]],    #28
-[ -1, Upsample, [None, 2, 'nearest']],  #29
-[ -1, Conv, [32, 16, 3, 1]],    #30
-
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #31 driving area segment neck
-[ -1, Upsample, [None, 2, 'nearest']],  #32
-[ -1, Conv, [8, 2, 3, 1]], #33 Driving area segmentation output
-
-[ 16, Conv, [256, 128, 3, 1]],   #34
-[ -1, Upsample, [None, 2, 'nearest']],  #35
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #36
-[ -1, Conv, [64, 32, 3, 1]],    #37
-[ -1, Upsample, [None, 2, 'nearest']],  #38
-[ -1, Conv, [32, 16, 3, 1]],    #39
-
-[ 30, SharpenConv, [16,16, 3, 1]], #40
-[ -1, Conv, [16, 16, 3, 1]], #41
-[ [-1, 39], Concat, [1]],   #42
-[ -1, BottleneckCSP, [32, 8, 1, False]],    #43 lane line segment neck
-[ -1, Upsample, [None, 2, 'nearest']],  #44
-[ -1, Conv, [8, 2, 3, 1]] #45 Lane line segmentation output
-]"""
 
 
 # The lane line and the driving area segment branches without share information with each other and without link
 YOLOP = [
-[24, 33],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
+[24, 33, 34],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
 [ -1, Focus, [3, 32, 3]],   #0
 [ -1, Conv, [32, 64, 3, 2]],    #1
 [ -1, BottleneckCSP, [64, 64, 1]],  #2
@@ -488,24 +58,33 @@ YOLOP = [
 [ -1, BottleneckCSP, [16, 8, 1, False]],    #31
 [ -1, Upsample, [None, 2, 'nearest']],  #32
 [ -1, Conv, [8, 2, 3, 1]] #33 Driving area segmentation head
+
+[ 16, Detect_lane, [(97, 18, 4)]] # 34
 ]
 
 
 class MCnet(nn.Module):
-    def __init__(self, block_cfg, **kwargs):
+    def __init__(self, block_cfg, aux_seg, **kwargs):
         super(MCnet, self).__init__()
         layers, save= [], []
         self.nc = 1
         self.detector_index = -1
+        self.lane_index = = -1
         self.det_out_idx = block_cfg[0][0]
-        self.lane_out_idx = block_cfg[0][1]
+        self.lane_seg_idx = block_cfg[0][1]
+        self.lane_out_idx = block_cfg[0][2]
         
+        self.aux_seg = aux_seg
 
         # Build model
         for i, (from_, block, args) in enumerate(block_cfg[1:]):
+            if not self.aux_seg and i in range(self.det_out_idx+1, self.lane_seg_idx+1):
+                continue
             block = eval(block) if isinstance(block, str) else block  # eval strings
             if block is Detect:
                 self.detector_index = i
+            if block is Detect_lane:
+                self.lane_index = i
             block_ = block(*args)
             block_.index, block_.from_ = i, from_
             layers.append(block_)
@@ -537,6 +116,7 @@ class MCnet(nn.Module):
     def forward(self, x):
         cache = []
         out = []
+        lane_out = []
         det_out = None
         for i, block in enumerate(self.model):
             if block.from_ != -1:
@@ -544,8 +124,16 @@ class MCnet(nn.Module):
             x = block(x)
             if i == self.detector_index:
                 det_out = x
+            if self.aux_seg:
+                if i == self.lane_out_idx or i == self.lane_seg_idx:
+                    lane_out.append(x)
+            else:
+                if i == self.lane_index:
+                    lane_out.append(x)
             cache.append(x if block.index in self.save else None)
+        out.append(lane_out)
         out.insert(0, det_out)
+        
         return out
             
     
@@ -562,7 +150,8 @@ class MCnet(nn.Module):
 
 def get_net(cfg, **kwargs): 
     m_block_cfg = YOLOP
-    model = MCnet(m_block_cfg, **kwargs)
+    aux_seg = cfg.LANE.AUX_SEG
+    model = MCnet(m_block_cfg, aux_seg, **kwargs)
     return model
 
 

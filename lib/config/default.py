@@ -44,6 +44,11 @@ _C.LOSS.BOX_GAIN = 0.05  # box loss gain
 _C.LOSS.CLS_GAIN = 0.5  # classification loss gain
 _C.LOSS.OBJ_GAIN = 1.0  # object loss gain
 
+# lane detection params
+_C.LANE.DATA_ROOT = '/home/YOLOP/datasets/CULane'
+_C.LANE.GRIDING_NUM = 96
+_C.LANE.AUX_SEG = True
+
 # _C.LOSS.DA_SEG_GAIN = 0.2  # driving area segmentation loss gain
 # _C.LOSS.LL_SEG_GAIN = 0.2  # lane line segmentation loss gain
 # _C.LOSS.LL_IOU_GAIN = 0.2 # lane line iou loss gain
@@ -91,7 +96,7 @@ _C.TRAIN.GAMMA1 = 0.99
 _C.TRAIN.GAMMA2 = 0.0
 
 _C.TRAIN.BEGIN_EPOCH = 0
-_C.TRAIN.END_EPOCH = 50
+_C.TRAIN.END_EPOCH = 2
 
 _C.TRAIN.VAL_FREQ = 1
 _C.TRAIN.BATCH_SIZE_PER_GPU =48
