@@ -69,7 +69,7 @@ class MCnet(nn.Module):
         layers, save= [], []
         self.nc = 1
         self.detector_index = -1
-        self.lane_index == -1
+        self.lane_index = -1
         self.det_out_idx = block_cfg[0][0]
         self.lane_seg_idx = block_cfg[0][1]
         self.lane_out_idx = block_cfg[0][2]
