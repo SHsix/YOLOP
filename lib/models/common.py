@@ -187,7 +187,7 @@ class Detect_lane(nn.Module):
         x = self.pool(x).view(-1, 8 * 32 * 32)
         x = self.cls(x).view(-1, *self.cls_dim)
         
-        return torch.cat(x, self.d)
+        return x
 
 class Detect(nn.Module):
     stride = None  # strides computed during build
