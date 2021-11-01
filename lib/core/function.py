@@ -77,8 +77,6 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
 
         with amp.autocast(enabled=device.type != 'cpu'):
             outputs = model(input)
-            print(len(outputs))
-            print(len(target))
             total_loss, head_losses = criterion(outputs, target, shapes, model)
             # print(head_losses)
 
@@ -222,41 +220,6 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
 
             inf_out, train_out = det_out
 
-            # outputs = model(input)
-            # total_loss, head_losses = criterion(outputs, target, shapes, model)
-            # # print(head_losses)
-
-            # #driving area segment evaluation
-            # _,da_predict=torch.max(da_seg_out, 1)
-            # _,da_gt=torch.max(target[1], 1)
-            # da_predict = da_predict[:, pad_h:height-pad_h, pad_w:width-pad_w]
-            # da_gt = da_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
-
-            # da_metric.reset()
-            # da_metric.addBatch(da_predict.cpu(), da_gt.cpu())
-            # da_acc = da_metric.pixelAccuracy()
-            # da_IoU = da_metric.IntersectionOverUnion()
-            # da_mIoU = da_metric.meanIntersectionOverUnion()
-
-            # da_acc_seg.update(da_acc,img.size(0))
-            # da_IoU_seg.update(da_IoU,img.size(0))
-            # da_mIoU_seg.update(da_mIoU,img.size(0))
-
-            # #lane line segment evaluation
-            # _,ll_predict=torch.max(ll_seg_out, 1)
-            # _,ll_gt=torch.max(target[2], 1)
-            # ll_predict = ll_predict[:, pad_h:height-pad_h, pad_w:width-pad_w]
-            # ll_gt = ll_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
-
-            # ll_metric.reset()
-            # ll_metric.addBatch(ll_predict.cpu(), ll_gt.cpu())
-            # ll_acc = ll_metric.lineAccuracy()
-            # ll_IoU = ll_metric.IntersectionOverUnion()
-            # ll_mIoU = ll_metric.meanIntersectionOverUnion()
-
-            # ll_acc_seg.update(ll_acc,img.size(0))
-            # ll_IoU_seg.update(ll_IoU,img.size(0))
-            # ll_mIoU_seg.update(ll_mIoU,img.size(0))
 
             # total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out), target, shapes,model)   #Compute loss
             total_loss, head_losses = criterion(
