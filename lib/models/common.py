@@ -171,11 +171,12 @@ class Concat(nn.Module):
     
 class Detect_lane(nn.Module):
     # Concatenate a list of tensors along dimension
-    def __init__(self, cls_dim=(97, 18, 4)):
+    def __init__(self, grid, ncls, num):
         super(Detect_lane, self).__init__()
         self.pool = torch.nn.Conv2d(256, 8, 1)
-        self.total_dim = np.prod(cls_dim)
-        self.cls_dim = cls_dim
+        self.cls_dim = (grid, ncls, num)
+        self.total_dim = np.prod(self.cls_dim)
+        
         self.cls = torch.nn.Sequential(
             torch.nn.Linear(8 * 32 * 32, 1024),
             torch.nn.ReLU(),
