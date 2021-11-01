@@ -222,7 +222,7 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
 
             # total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out), target, shapes,model)   #Compute loss
             total_loss, head_losses = criterion(
-                train_out, target, shapes, model)  # Compute loss
+                (train_out, 0), target, shapes, model)  # Compute loss
 
             losses.update(total_loss.item(), img.size(0))
 
