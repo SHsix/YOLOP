@@ -220,7 +220,6 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
 
             inf_out, train_out = det_out
 
-
             # total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out), target, shapes,model)   #Compute loss
             total_loss, head_losses = criterion(
                 train_out, target, shapes, model)  # Compute loss
