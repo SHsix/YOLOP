@@ -133,7 +133,6 @@ class MCnet(nn.Module):
             cache.append(x if block.index in self.save else None)
         out.append(lane_out)
         out.insert(0, det_out)
-        print(len(out))
         return out
             
     

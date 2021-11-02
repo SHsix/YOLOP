@@ -76,9 +76,9 @@ def obj_train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num
             target = assign_target
        
         with amp.autocast(enabled=device.type != 'cpu'):
-            outputs, _ = model(input)
-            print(len(outputs))
-            total_loss, head_losses = criterion(outputs, target, shapes, model)
+            det_out, _ = model(input)
+            print(len(det_out))
+            total_loss, head_losses = criterion((det_out, 0), target, shapes, model)
             # print(head_losses)
 
         # compute gradient and do update step
