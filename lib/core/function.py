@@ -77,7 +77,6 @@ def obj_train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num
        
         with amp.autocast(enabled=device.type != 'cpu'):
             det_out, _ = model(input)
-            print(len(det_out))
             total_loss, head_losses = criterion((det_out, 0), target, shapes, model)
             # print(head_losses)
 
