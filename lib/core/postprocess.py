@@ -39,6 +39,7 @@ def build_targets(cfg, predictions, targets, model):
     
     for i in range(det.nl):
         anchors = det.anchors[i] #[3,2]
+        print(predictions[i].shape)
         gain[2:6] = torch.tensor(predictions[i].shape)[[3, 2, 3, 2]]  # xyxy gain
         # Match targets to anchors
         t = targets * gain
