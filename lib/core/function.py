@@ -205,7 +205,7 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
 
             t = time_synchronized()
             # det_out, da_seg_out, ll_seg_out= model(img)
-            det_out, _ = model(img)
+            det_out = model(img)[0]
 
             t_inf = time_synchronized() - t
             if batch_i > 0:
