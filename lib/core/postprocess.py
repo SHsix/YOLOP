@@ -36,7 +36,7 @@ def build_targets(cfg, predictions, targets, model):
                         [1, 0], [0, 1], [-1, 0], [0, -1],  # j,k,l,m
                         # [1, 1], [1, -1], [-1, 1], [-1, -1],  # jk,jm,lk,lm
                         ], device=targets.device).float() * g  # offsets
-    
+    print(det.nl)
     for i in range(det.nl):
         anchors = det.anchors[i] #[3,2]
         gain[2:6] = torch.tensor(predictions[i].shape)[[3, 2, 3, 2]]  # xyxy gain
