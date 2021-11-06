@@ -210,7 +210,7 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
             if batch_i > 0:
                 T_inf.update(t_inf/img.size(0), img.size(0))
 
-            inf_out, train_out = det_out
+            inf_out, train_out = det_out[0]
 
             # total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out), target, shapes,model)   #Compute loss
             total_loss, head_losses = criterion(
