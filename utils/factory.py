@@ -27,7 +27,7 @@ def get_scheduler(optimizer, cfg, iters_per_epoch):
 
 def get_loss_dict(cfg):
 
-    if cfg.use_aux:
+    if cfg.LANE.AUX_SEG:
         loss_dict = {
             'name': ['cls_loss', 'relation_loss', 'aux_loss', 'relation_dis'],
             'op': [SoftmaxFocalLoss(2), ParsingRelationLoss(), torch.nn.CrossEntropyLoss(), ParsingRelationDis()],
@@ -46,7 +46,7 @@ def get_loss_dict(cfg):
 
 def get_metric_dict(cfg):
 
-    if cfg.use_aux:
+    if cfg.LANE.AUX_SEG:
         metric_dict = {
             'name': ['top1', 'top2', 'top3', 'iou'],
             'op': [MultiLabelAcc(), AccTopk(cfg.LANE.GRIDING_NUM, 2), AccTopk(cfg.LANE.GRIDING_NUM, 3), Metric_mIoU(cfg.LANE.NUM_LANES+1)],
