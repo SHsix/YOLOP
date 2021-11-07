@@ -7,9 +7,9 @@ import torch
 
 def get_optimizer(net,cfg):
     training_params = filter(lambda p: p.requires_grad, net.parameters())
-    if cfg.optimizer == 'Adam':
+    if cfg.LANE.OPTIMIZER == 'Adam':
         optimizer = torch.optim.Adam(training_params, lr=cfg.learning_rate, weight_decay=cfg.weight_decay)
-    elif cfg.optimizer == 'SGD':
+    elif cfg.LANE.OPTIMIZER == 'SGD':
         optimizer = torch.optim.SGD(training_params, lr=cfg.learning_rate, momentum=cfg.momentum,
                                     weight_decay=cfg.weight_decay)
     else:
@@ -17,9 +17,9 @@ def get_optimizer(net,cfg):
     return optimizer
 
 def get_scheduler(optimizer, cfg, iters_per_epoch):
-    if cfg.scheduler == 'multi':
+    if cfg.LANE.SCHEDULER == 'multi':
         scheduler = MultiStepLR(optimizer, cfg.steps, cfg.gamma, iters_per_epoch, cfg.warmup, iters_per_epoch if cfg.warmup_iters is None else cfg.warmup_iters)
-    elif cfg.scheduler == 'cos':
+    elif cfg.LANE.SCHEDULER == 'cos':
         scheduler = CosineAnnealingLR(optimizer, cfg.epoch * iters_per_epoch, eta_min = 0, warmup = cfg.warmup, warmup_iters = cfg.warmup_iters)
     else:
         raise NotImplementedError
@@ -31,14 +31,14 @@ def get_loss_dict(cfg):
         loss_dict = {
             'name': ['cls_loss', 'relation_loss', 'aux_loss', 'relation_dis'],
             'op': [SoftmaxFocalLoss(2), ParsingRelationLoss(), torch.nn.CrossEntropyLoss(), ParsingRelationDis()],
-            'weight': [1.0, cfg.sim_loss_w, 1.0, cfg.shp_loss_w],
+            'weight': [1.0, cfg.LANE.SIM_LOSS, cfg.LANE.SHP_LOSS],
             'data_src': [('cls_out', 'cls_label'), ('cls_out',), ('seg_out', 'seg_label'), ('cls_out',)]
         }
     else:
         loss_dict = {
             'name': ['cls_loss', 'relation_loss', 'relation_dis'],
             'op': [SoftmaxFocalLoss(2), ParsingRelationLoss(), ParsingRelationDis()],
-            'weight': [1.0, cfg.sim_loss_w, cfg.shp_loss_w],
+            'weight': [1.0, cfg.LANE.SIM_LOSS, cfg.LANE.SHP_LOSS],
             'data_src': [('cls_out', 'cls_label'), ('cls_out',), ('cls_out',)]
         }
 
@@ -49,13 +49,13 @@ def get_metric_dict(cfg):
     if cfg.use_aux:
         metric_dict = {
             'name': ['top1', 'top2', 'top3', 'iou'],
-            'op': [MultiLabelAcc(), AccTopk(cfg.griding_num, 2), AccTopk(cfg.griding_num, 3), Metric_mIoU(cfg.num_lanes+1)],
+            'op': [MultiLabelAcc(), AccTopk(cfg.LANE.GRIDING_NUM, 2), AccTopk(cfg.LANE.GRIDING_NUM, 3), Metric_mIoU(cfg.LANE.NUM_LANES+1)],
             'data_src': [('cls_out', 'cls_label'), ('cls_out', 'cls_label'), ('cls_out', 'cls_label'), ('seg_out', 'seg_label')]
         }
     else:
         metric_dict = {
             'name': ['top1', 'top2', 'top3'],
-            'op': [MultiLabelAcc(), AccTopk(cfg.griding_num, 2), AccTopk(cfg.griding_num, 3)],
+            'op': [MultiLabelAcc(), AccTopk(cfg.LANE.GRIDING_NUM, 2), AccTopk(cfg.LANE.GRIDING_NUM, 3)],
             'data_src': [('cls_out', 'cls_label'), ('cls_out', 'cls_label'), ('cls_out', 'cls_label')]
         }
 

@@ -47,9 +47,21 @@ _C.LOSS.OBJ_GAIN = 1.0  # object loss gain
 
 # lane detection params
 _C.LANE = CN(new_allowed=True)
+_C.LANE.DATASET = 'CULane'
 _C.LANE.DATA_ROOT = '/home/YOLOP/datasets/CULane'
 _C.LANE.GRIDING_NUM = 96
 _C.LANE.AUX_SEG = True
+_C.LANE.BATCH_SIZE = 36
+_C.LANE.END_EPOCH = 2
+_C.LANE.NUM_LANES = 4
+
+# lane loss
+_C.LANE.SIM_LOSS = 0.0
+_C.LANE.SHP_LOSS = 0.0
+
+# Lane optimizer & Scheduler
+_C.LANE.OPTIMIZER = 'SGD'
+_C.LANE.SCHEDULER = 'multi'
 
 # _C.LOSS.DA_SEG_GAIN = 0.2  # driving area segmentation loss gain
 # _C.LOSS.LL_SEG_GAIN = 0.2  # lane line segmentation loss gain
@@ -100,7 +112,7 @@ _C.TRAIN.GAMMA1 = 0.99
 _C.TRAIN.GAMMA2 = 0.0
 
 _C.TRAIN.BEGIN_EPOCH = 0
-_C.TRAIN.END_EPOCH = 2
+_C.TRAIN.END_EPOCH = 1
 
 _C.TRAIN.VAL_FREQ = 1
 _C.TRAIN.BATCH_SIZE_PER_GPU = 36

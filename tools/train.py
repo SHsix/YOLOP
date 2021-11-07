@@ -137,8 +137,7 @@ def main():
     Encoder_para_idx = [str(i) for i in range(0, 17)]
     Det_Head_para_idx = [str(i) for i in range(17, 25)]
     lane_Head_para_idx = [str(i) for i in range(25, 35)]
-    # Da_Seg_Head_para_idx = [str(i) for i in range(25, 34)]
-    # Ll_Seg_Head_para_idx = [str(i) for i in range(34,43)]
+
 
     lf = lambda x: ((1 + math.cos(x * math.pi / cfg.TRAIN.END_EPOCH)) / 2) * \
                    (1 - cfg.TRAIN.LRF) + cfg.TRAIN.LRF  # cosine
@@ -351,11 +350,16 @@ def main():
 
     from utils.common import merge_config, save_model, cp_projects
     from utils.common import get_work_dir, get_logger
+    
+    
+    distributed  = world_size > 1
     print("begin to load lane data")              
-    train_loader, cls_num_per_lane = get_train_loader(cfg.batch_size, cfg.data_root, cfg.griding_num, cfg.dataset, cfg.use_aux, distributed, cfg.num_lanes)
+    train_loader, cls_num_per_lane = get_train_loader(cfg.LANE.BATCH_SIZE, cfg.LANE.DATA_ROOT, cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
+    
+    optimizer = get_optimizer(model, cfg)
     metric_dict = get_metric_dict(cfg)
     loss_dict = get_loss_dict(cfg)
-    for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
+    for epoch in range(begin_epoch+1, cfg.LANE.END_EPOCH+1):
          lane_train(model, train_loader, loss_dict, optimizer, lr_scheduler,logger, epoch, metric_dict, cfg.use_aux)
                 
             
