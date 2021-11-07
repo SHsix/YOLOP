@@ -12,7 +12,7 @@ def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distr
         mytransforms.MaskToTensor(),
     ])
     segment_transform = transforms.Compose([
-        mytransforms.FreeScaleMask((256, 256)),
+        mytransforms.FreeScaleMask((18, 4)),
         mytransforms.MaskToTensor(),
     ])
     img_transform = transforms.Compose([
