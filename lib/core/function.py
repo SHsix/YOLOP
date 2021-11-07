@@ -505,7 +505,7 @@ def inference(net, data_label, use_aux):
     if use_aux:
         img, cls_label, seg_label = data_label
         img, cls_label, seg_label = img.cuda(), cls_label.long().cuda(), seg_label.long().cuda()
-        cls_out, seg_out = net(img)[1]
+        seg_out, cls_out  = net(img)[1]
         print(cls_out.shape, seg_out.shape)
         
         print("seg : ", seg_out.shape, seg_label.shape)
