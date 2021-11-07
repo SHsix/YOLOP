@@ -356,7 +356,7 @@ def main():
     print("begin to load lane data")              
     train_loader, cls_num_per_lane = get_train_loader(cfg.LANE.BATCH_SIZE, cfg.LANE.DATA_ROOT, cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
     
-    optimizer = get_optimizer(model, cfg)
+    optimizer = get_optimizer(cfg, model)
     metric_dict = get_metric_dict(cfg)
     loss_dict = get_loss_dict(cfg)
     for epoch in range(begin_epoch+1, cfg.LANE.END_EPOCH+1):
