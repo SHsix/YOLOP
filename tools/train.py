@@ -360,7 +360,7 @@ def main():
     metric_dict = get_metric_dict(cfg)
     loss_dict = get_loss_dict(cfg)
     for epoch in range(begin_epoch+1, cfg.LANE.END_EPOCH+1):
-         lane_train(model, train_loader, loss_dict, optimizer, lr_scheduler,logger, epoch, metric_dict, cfg.use_aux)
+         lane_train(model, train_loader, loss_dict, optimizer, lr_scheduler,logger, epoch, metric_dict, cfg.LANE.AUX_SEG)
                 
             
             
