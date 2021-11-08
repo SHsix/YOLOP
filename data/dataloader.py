@@ -95,7 +95,7 @@ def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distr
     else:
         sampler = torch.utils.data.RandomSampler(train_dataset)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=16)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=24)
 
     return train_loader, cls_num_per_lane
 
@@ -116,7 +116,7 @@ def get_test_loader(batch_size, data_root,dataset, distributed):
         sampler = SeqDistributedSampler(test_dataset, shuffle = False)
     else:
         sampler = torch.utils.data.SequentialSampler(test_dataset)
-    loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, sampler = sampler, num_workers=4)
+    loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, sampler = sampler, num_workers=16)
     return loader
 
 
