@@ -532,8 +532,8 @@ def calc_loss(loss_dict, results, logger, global_step):
 
         loss_cur = loss_dict['op'][i](*datas)
 
-        if global_step % 20 == 0:
-            logger.add_scalar('loss/'+loss_dict['name'][i], loss_cur, global_step)
+        # if global_step % 20 == 0:
+        #     logger.add_scalar('loss/'+loss_dict['name'][i], loss_cur, global_step)
 
         loss += loss_cur * loss_dict['weight'][i]
     return loss
