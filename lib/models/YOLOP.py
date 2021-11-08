@@ -58,7 +58,7 @@ YOLOP = [
     [-1, Conv, [32, 16, 3, 1]],  # 30
     [-1, BottleneckCSP, [16, 8, 1, False]],  # 31
     [-1, Upsample, [None, 2, 'nearest']],  # 32
-    [-1, Conv, [8, 1, 3, 1]],  # 33 Driving area segmentation head
+    [-1, Conv, [8, 5, 3, 1]],  # 33 Driving area segmentation head
 
     [16, Detect_lane, [97, 18, 4]]  # 34
 ]
