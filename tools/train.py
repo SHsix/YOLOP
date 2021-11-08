@@ -244,20 +244,6 @@ def main():
     
     
     
-    from data.dataloader import get_train_loader
-        
-    from utils.dist_utils import dist_print, dist_tqdm, is_main_process, DistSummaryWriter
-    from utils.factory import get_metric_dict, get_loss_dict
-    from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU, update_metrics, reset_metrics
-    
-    distributed  = world_size > 1
-    print("begin to load lane data")              
-    lane_train_loader, cls_num_per_lane = get_train_loader(cfg.LANE.BATCH_SIZE, cfg.LANE.DATA_ROOT, cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
-    
-    optimizer = get_optimizer(cfg, model)
-    metric_dict = get_metric_dict(cfg)
-    loss_dict = get_loss_dict(cfg)
-    
     
     
     
@@ -327,6 +313,20 @@ def main():
                 print('freezing %s' % k)
                 v.requires_grad = False
 
+    from data.dataloader import get_train_loader
+        
+    from utils.dist_utils import dist_print, dist_tqdm, is_main_process, DistSummaryWriter
+    from utils.factory import get_metric_dict, get_loss_dict
+    from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU, update_metrics, reset_metrics
+    
+    distributed  = world_size > 1
+    print("begin to load lane data")              
+    lane_train_loader, cls_num_per_lane = get_train_loader(cfg.LANE.BATCH_SIZE, cfg.LANE.DATA_ROOT, cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
+    
+    optimizer = get_optimizer(cfg, model)
+    metric_dict = get_metric_dict(cfg)
+    loss_dict = get_loss_dict(cfg)
+    
     for epoch in range(begin_epoch+1, cfg.LANE.END_EPOCH+1):
          lane_train(model, lane_train_loader, loss_dict, optimizer, lr_scheduler,logger, epoch, metric_dict, cfg.LANE.AUX_SEG)
 
