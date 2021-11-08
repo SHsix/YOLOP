@@ -5,6 +5,58 @@ import torchvision.transforms as transforms
 import data.mytransforms as mytransforms
 from data.constant import culane_row_anchor
 from data.dataset import LaneClsDataset, LaneTestDataset
+from lib.utils import DataLoaderX, torch_distributed_zero_first
+import lib.dataset as dataset
+
+def get_ob_dataloader(cfg, rank):
+    # Data loading
+    normalize = transforms.Normalize(
+        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    )
+
+    train_dataset = eval('dataset.' + cfg.DATASET.DATASET)(
+        cfg=cfg,
+        is_train=True,
+        inputsize=cfg.MODEL.IMAGE_SIZE,
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
+    )
+    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if rank != -1 else None
+
+    train_loader = DataLoaderX(
+        train_dataset,
+        batch_size=cfg.TRAIN.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
+        shuffle=(cfg.TRAIN.SHUFFLE & rank == -1),
+        num_workers=cfg.WORKERS,
+        sampler=train_sampler,
+        pin_memory=cfg.PIN_MEMORY,
+        collate_fn=dataset.AutoDriveDataset.collate_fn
+    )
+    
+
+    if rank in [-1, 0]:
+        valid_dataset = eval('dataset.' + cfg.DATASET.DATASET)(
+            cfg=cfg,
+            is_train=False,
+            inputsize=cfg.MODEL.IMAGE_SIZE,
+            transform=transforms.Compose([
+                transforms.ToTensor(),
+                normalize,
+            ])
+        )
+
+        valid_loader = DataLoaderX(
+            valid_dataset,
+            batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
+            shuffle=False,
+            num_workers=cfg.WORKERS,
+            pin_memory=cfg.PIN_MEMORY,
+            collate_fn=dataset.AutoDriveDataset.collate_fn
+        )
+
+    return train_loader, valid_loader, train_dataset, valid_dataset
 
 def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distributed, num_lanes):
     target_transform = transforms.Compose([

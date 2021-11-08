@@ -17,10 +17,10 @@ import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import numpy as np
-from lib.utils import DataLoaderX, torch_distributed_zero_first
+
 from tensorboardX import SummaryWriter
 
-import lib.dataset as dataset
+
 from lib.config import cfg
 from lib.config import update_config
 from lib.core.loss import get_loss
@@ -33,7 +33,7 @@ from lib.utils.utils import get_optimizer
 from lib.utils.utils import save_checkpoint
 from lib.utils.utils import create_logger, select_device
 from lib.utils import run_anchor
-
+from data.dataloader import get_ob_dataloader
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Multitask network')
@@ -119,6 +119,8 @@ def main():
     
     print("load model to device")
     model = get_net(cfg).to(device)
+    
+
     # print("load finished")
     #model = model.to(device)
     # print("finish build model")
@@ -214,58 +216,18 @@ def main():
     # print('bulid model finished')
 
     print("begin to load object detection data")
-    # Data loading
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
-
-    train_dataset = eval('dataset.' + cfg.DATASET.DATASET)(
-        cfg=cfg,
-        is_train=True,
-        inputsize=cfg.MODEL.IMAGE_SIZE,
-        transform=transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])
-    )
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if rank != -1 else None
-
-    train_loader = DataLoaderX(
-        train_dataset,
-        batch_size=cfg.TRAIN.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
-        shuffle=(cfg.TRAIN.SHUFFLE & rank == -1),
-        num_workers=cfg.WORKERS,
-        sampler=train_sampler,
-        pin_memory=cfg.PIN_MEMORY,
-        collate_fn=dataset.AutoDriveDataset.collate_fn
-    )
-    num_batch = len(train_loader)
-
-    if rank in [-1, 0]:
-        valid_dataset = eval('dataset.' + cfg.DATASET.DATASET)(
-            cfg=cfg,
-            is_train=False,
-            inputsize=cfg.MODEL.IMAGE_SIZE,
-            transform=transforms.Compose([
-                transforms.ToTensor(),
-                normalize,
-            ])
-        )
-
-        valid_loader = DataLoaderX(
-            valid_dataset,
-            batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
-            shuffle=False,
-            num_workers=cfg.WORKERS,
-            pin_memory=cfg.PIN_MEMORY,
-            collate_fn=dataset.AutoDriveDataset.collate_fn
-        )
-        print('load data finished')
+    
+    
+    ob_train_loader, ob_valid_loader, ob_train_dataset, ob_valid_dataset = get_ob_dataloader(cfg, rank)
+    num_batch = len(ob_train_loader)
+    
+    
+    print('load data finished')
     
     if rank in [-1, 0]:
         if cfg.NEED_AUTOANCHOR:
             logger.info("begin check anchors")
-            run_anchor(logger,train_dataset, model=model, thr=cfg.TRAIN.ANCHOR_THRESHOLD, imgsz=min(cfg.MODEL.IMAGE_SIZE))
+            run_anchor(logger,ob_train_dataset, model=model, thr=cfg.TRAIN.ANCHOR_THRESHOLD, imgsz=min(cfg.MODEL.IMAGE_SIZE))
         else:
             logger.info("anchors loaded successfully")
             det = model.module.model[model.module.detector_index] if is_parallel(model) \
@@ -275,96 +237,99 @@ def main():
     # training
     num_warmup = max(round(cfg.TRAIN.WARMUP_EPOCHS * num_batch), 1000)
     scaler = amp.GradScaler(enabled=device.type != 'cpu')
+    
+    
     print('=> start training...')
-    # for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
-    #     if rank != -1:
-    #         train_loader.sampler.set_epoch(epoch)
-    #     # train for one epoch
-    #     obj_train(cfg, train_loader, model, criterion, optimizer, scaler,
-    #           epoch, num_batch, num_warmup, writer_dict, logger, device, rank)
-        
-    #     lr_scheduler.step()
-
-    #     # evaluate on validation set
-    #     if (epoch % cfg.TRAIN.VAL_FREQ == 0 or epoch == cfg.TRAIN.END_EPOCH) and rank in [-1, 0]:
-    #         # print('validate')
-    #         detect_results, total_loss,maps, times = validate(
-    #             epoch,cfg, valid_loader, valid_dataset, model, criterion,
-    #             final_output_dir, tb_log_dir, writer_dict,
-    #             logger, device, rank
-    #         )
-    #         fi = fitness(np.array(detect_results).reshape(1, -1))  #目标检测评价指标
-
-    #         msg = 'Epoch: [{0}]    Loss({loss:.3f})\n' \
-    #                   'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
-    #                   'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
-    #                       epoch,  loss=total_loss, 
-    #                       p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
-    #                       t_inf=times[0], t_nms=times[1])
-    #         logger.info(msg)
-
-    #         # if perf_indicator >= best_perf:
-    #         #     best_perf = perf_indicator
-    #         #     best_model = True
-    #         # else:
-    #         #     best_model = False
-
-    #     # save checkpoint model and best model
-    #     if rank in [-1, 0]:
-    #         savepath = os.path.join(final_output_dir, f'epoch-{epoch}.pth')
-    #         logger.info('=> saving checkpoint to {}'.format(savepath))
-    #         save_checkpoint(
-    #             epoch=epoch,
-    #             name=cfg.MODEL.NAME,
-    #             model=model,
-    #             # 'best_state_dict': model.module.state_dict(),
-    #             # 'perf': perf_indicator,
-    #             optimizer=optimizer,
-    #             output_dir=final_output_dir,
-    #             filename=f'epoch-{epoch}.pth'
-    #         )
-    #         save_checkpoint(
-    #             epoch=epoch,
-    #             name=cfg.MODEL.NAME,
-    #             model=model,
-    #             # 'best_state_dict': model.module.state_dict(),
-    #             # 'perf': perf_indicator,
-    #             optimizer=optimizer,
-    #             output_dir=os.path.join(cfg.LOG_DIR, cfg.DATASET.DATASET),
-    #             filename='checkpoint.pth'
-    #         )
-            
-    # if rank in [-1, 0]:
-    #     logger.info('freeze lane detection head...')
-    #     for k, v in model.named_parameters():
-    #         v.requires_grad = True  # train all layers
-    #         if k.split(".")[1] in Det_Head_para_idx:
-    #             print('freezing %s' % k)
-    #             v.requires_grad = False
-
+    
+    
+    
+    
     from data.dataloader import get_train_loader
         
     from utils.dist_utils import dist_print, dist_tqdm, is_main_process, DistSummaryWriter
     from utils.factory import get_metric_dict, get_loss_dict
     from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU, update_metrics, reset_metrics
-
-    from utils.common import merge_config, save_model, cp_projects
-    from utils.common import get_work_dir, get_logger
-    
     
     distributed  = world_size > 1
     print("begin to load lane data")              
-    train_loader, cls_num_per_lane = get_train_loader(cfg.LANE.BATCH_SIZE, cfg.LANE.DATA_ROOT, cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
+    lane_train_loader, cls_num_per_lane = get_train_loader(cfg.LANE.BATCH_SIZE, cfg.LANE.DATA_ROOT, cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
     
     optimizer = get_optimizer(cfg, model)
     metric_dict = get_metric_dict(cfg)
     loss_dict = get_loss_dict(cfg)
+    
+    
+    
+    
+    for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
+        if rank != -1:
+            ob_train_loader.sampler.set_epoch(epoch)
+        # train for one epoch
+        obj_train(cfg, ob_train_loader, model, criterion, optimizer, scaler,
+              epoch, num_batch, num_warmup, writer_dict, logger, device, rank)
+        
+        lr_scheduler.step()
+
+        # evaluate on validation set
+        if (epoch % cfg.TRAIN.VAL_FREQ == 0 or epoch == cfg.TRAIN.END_EPOCH) and rank in [-1, 0]:
+            # print('validate')
+            detect_results, total_loss,maps, times = validate(
+                epoch,cfg, ob_valid_loader, ob_valid_dataset, model, criterion,
+                final_output_dir, tb_log_dir, writer_dict,
+                logger, device, rank
+            )
+            fi = fitness(np.array(detect_results).reshape(1, -1))  #目标检测评价指标
+
+            msg = 'Epoch: [{0}]    Loss({loss:.3f})\n' \
+                      'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
+                      'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
+                          epoch,  loss=total_loss, 
+                          p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
+                          t_inf=times[0], t_nms=times[1])
+            logger.info(msg)
+
+            # if perf_indicator >= best_perf:
+            #     best_perf = perf_indicator
+            #     best_model = True
+            # else:
+            #     best_model = False
+
+        # save checkpoint model and best model
+        if rank in [-1, 0]:
+            savepath = os.path.join(final_output_dir, f'epoch-{epoch}.pth')
+            logger.info('=> saving checkpoint to {}'.format(savepath))
+            save_checkpoint(
+                epoch=epoch,
+                name=cfg.MODEL.NAME,
+                model=model,
+                # 'best_state_dict': model.module.state_dict(),
+                # 'perf': perf_indicator,
+                optimizer=optimizer,
+                output_dir=final_output_dir,
+                filename=f'epoch-{epoch}.pth'
+            )
+            save_checkpoint(
+                epoch=epoch,
+                name=cfg.MODEL.NAME,
+                model=model,
+                # 'best_state_dict': model.module.state_dict(),
+                # 'perf': perf_indicator,
+                optimizer=optimizer,
+                output_dir=os.path.join(cfg.LOG_DIR, cfg.DATASET.DATASET),
+                filename='checkpoint.pth'
+            )
+            
+    if rank in [-1, 0]:
+        logger.info('freeze lane detection head...')
+        for k, v in model.named_parameters():
+            v.requires_grad = True  # train all layers
+            if k.split(".")[1] in Det_Head_para_idx:
+                print('freezing %s' % k)
+                v.requires_grad = False
+
     for epoch in range(begin_epoch+1, cfg.LANE.END_EPOCH+1):
-         lane_train(model, train_loader, loss_dict, optimizer, lr_scheduler,logger, epoch, metric_dict, cfg.LANE.AUX_SEG)
-                
-            
-            
-            
+         lane_train(model, lane_train_loader, loss_dict, optimizer, lr_scheduler,logger, epoch, metric_dict, cfg.LANE.AUX_SEG)
+
     # save final model
     if rank in [-1, 0]:
         final_model_state_file = os.path.join(
