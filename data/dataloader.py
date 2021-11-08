@@ -95,7 +95,7 @@ def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distr
     else:
         sampler = torch.utils.data.RandomSampler(train_dataset)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=8)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=16)
 
     return train_loader, cls_num_per_lane
 
