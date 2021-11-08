@@ -323,12 +323,12 @@ def main():
     print("begin to load lane data")              
     lane_train_loader, cls_num_per_lane = get_train_loader(cfg.LANE.BATCH_SIZE, cfg.LANE.DATA_ROOT, cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
     
-    optimizer = get_optimizer(cfg, model)
-    metric_dict = get_metric_dict(cfg)
-    loss_dict = get_loss_dict(cfg)
+    lane_optimizer = get_optimizer(cfg, model)
+    lane_metric_dict = get_metric_dict(cfg)
+    lane_loss_dict = get_loss_dict(cfg)
     
     for epoch in range(begin_epoch+1, cfg.LANE.END_EPOCH+1):
-         lane_train(model, lane_train_loader, loss_dict, optimizer, lr_scheduler,logger, epoch, metric_dict, cfg.LANE.AUX_SEG)
+         lane_train(model, lane_train_loader, lane_loss_dict, lane_optimizer, lr_scheduler,logger, epoch, lane_metric_dict, cfg.LANE.AUX_SEG)
 
     # save final model
     if rank in [-1, 0]:
