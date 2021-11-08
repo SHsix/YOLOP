@@ -184,11 +184,17 @@ class Detect_lane(nn.Module):
         )
         
     def forward(self, x):
-        print('About input x:', x.shape) # [64, 256, 32, 32]
+        # [64, 256, 32, 32]
         x = self.pool(x)
-        print('About pool x:', x.shape)
+        # [64, 8, 32, 32]
         x = x.view(-1, 8 * 16 * 16)
-        x = self.cls(x).view(-1, *self.cls_dim)
+        print(x.shape)
+        x = self.cls(x)
+        print(x.shape)
+        
+        x = x.view(-1, *self.cls_dim)
+        
+        print('last', x.shape)
         return x
 
 class Detect(nn.Module):
