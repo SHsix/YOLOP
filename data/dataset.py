@@ -112,8 +112,8 @@ class LaneClsDataset(torch.utils.data.Dataset):
     def _get_index(self, label):
         w, h = label.size
 
-        if h != 192:
-            scale_f = lambda x : int((x * 1.0/192) * h)
+        if h != 256:
+            scale_f = lambda x : int((x * 1.0/256) * h)
             sample_tmp = list(map(scale_f,self.row_anchor))
 
         all_idx = np.zeros((self.num_lanes,len(sample_tmp),2))
