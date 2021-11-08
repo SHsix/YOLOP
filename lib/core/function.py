@@ -563,8 +563,8 @@ def lane_train(net, data_loader, loss_dict, optimizer, scheduler,logger, epoch, 
         update_metrics(metric_dict, results)
         if global_step % 20 == 0:
             for me_name, me_op in zip(metric_dict['name'], metric_dict['op']):
-                logger.add_scalar('metric/' + me_name, me_op.get(), global_step=global_step)
-        logger.add_scalar('meta/lr', optimizer.param_groups[0]['lr'], global_step=global_step)
+                logger.info('metric/' + me_name, me_op.get(), global_step=global_step)
+        logger.info('meta/lr', optimizer.param_groups[0]['lr'], global_step=global_step)
 
         if hasattr(progress_bar,'set_postfix'):
             kwargs = {me_name: '%.3f' % me_op.get() for me_name, me_op in zip(metric_dict['name'], metric_dict['op'])}
