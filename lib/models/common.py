@@ -185,10 +185,11 @@ class Detect_lane(nn.Module):
         
     def forward(self, x):
         # [64, 256, 32, 32]
+        if x.shape[-1] != 32:
+            return torch.zeros(1, 3, 1, 1)
         x = self.pool(x)
         # [64, 8, 32, 32]
-        print(x.shape)
-        x = x.view(-1, 8 * 32 * 32)
+        x = x.view(-1, 8 * x.shape[-1] * x.shape[-2])
         x = self.cls(x)    
         x = x.view(-1, *self.cls_dim)
 
