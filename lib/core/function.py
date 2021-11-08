@@ -458,8 +458,7 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
 
-    # print(da_segment_result)
-    # print(ll_segment_result)
+
     detect_result = np.asarray([mp, mr, map50, map])
     # print('mp:{},mr:{},map50:{},map:{}'.format(mp, mr, map50, map))
     # print segmet_result

@@ -8,7 +8,7 @@ _C.LOG_DIR = 'runs/'
 _C.GPUS = (0, 1)
 _C.WORKERS = 8
 _C.PIN_MEMORY = False
-_C.PRINT_FREQ = 20
+_C.PRINT_FREQ = 40
 _C.AUTO_RESUME = False       # Resume from the last training interrupt
 # Re-select the prior anchor(k-means)    When training from scratch (epoch=0), set it to be ture!
 _C.NEED_AUTOANCHOR = False
@@ -52,7 +52,7 @@ _C.LANE.DATA_ROOT = '/home/YOLOP/datasets/CULane'
 _C.LANE.GRIDING_NUM = 96
 _C.LANE.AUX_SEG = True
 _C.LANE.BATCH_SIZE = 150
-_C.LANE.END_EPOCH = 1
+_C.LANE.END_EPOCH = 40
 _C.LANE.NUM_LANES = 4
 
 # lane loss
@@ -111,7 +111,7 @@ _C.TRAIN.GAMMA1 = 0.99
 _C.TRAIN.GAMMA2 = 0.0
 
 _C.TRAIN.BEGIN_EPOCH = 0
-_C.TRAIN.END_EPOCH = 1
+_C.TRAIN.END_EPOCH = 40
 
 _C.TRAIN.VAL_FREQ = 1
 _C.TRAIN.BATCH_SIZE_PER_GPU = 36
