@@ -178,7 +178,7 @@ class Detect_lane(nn.Module):
         self.total_dim = np.prod(self.cls_dim)
         
         self.cls = torch.nn.Sequential(
-            torch.nn.Linear(8 * 16 * 16, 1024),
+            torch.nn.Linear(8 * 32 * 32, 1024),
             torch.nn.ReLU(),
             torch.nn.Linear(1024, self.total_dim),
         )
