@@ -276,71 +276,71 @@ def main():
     num_warmup = max(round(cfg.TRAIN.WARMUP_EPOCHS * num_batch), 1000)
     scaler = amp.GradScaler(enabled=device.type != 'cpu')
     print('=> start training...')
-    for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
-        if rank != -1:
-            train_loader.sampler.set_epoch(epoch)
-        # train for one epoch
-        obj_train(cfg, train_loader, model, criterion, optimizer, scaler,
-              epoch, num_batch, num_warmup, writer_dict, logger, device, rank)
+    # for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
+    #     if rank != -1:
+    #         train_loader.sampler.set_epoch(epoch)
+    #     # train for one epoch
+    #     obj_train(cfg, train_loader, model, criterion, optimizer, scaler,
+    #           epoch, num_batch, num_warmup, writer_dict, logger, device, rank)
         
-        lr_scheduler.step()
+    #     lr_scheduler.step()
 
-        # evaluate on validation set
-        if (epoch % cfg.TRAIN.VAL_FREQ == 0 or epoch == cfg.TRAIN.END_EPOCH) and rank in [-1, 0]:
-            # print('validate')
-            detect_results, total_loss,maps, times = validate(
-                epoch,cfg, valid_loader, valid_dataset, model, criterion,
-                final_output_dir, tb_log_dir, writer_dict,
-                logger, device, rank
-            )
-            fi = fitness(np.array(detect_results).reshape(1, -1))  #目标检测评价指标
+    #     # evaluate on validation set
+    #     if (epoch % cfg.TRAIN.VAL_FREQ == 0 or epoch == cfg.TRAIN.END_EPOCH) and rank in [-1, 0]:
+    #         # print('validate')
+    #         detect_results, total_loss,maps, times = validate(
+    #             epoch,cfg, valid_loader, valid_dataset, model, criterion,
+    #             final_output_dir, tb_log_dir, writer_dict,
+    #             logger, device, rank
+    #         )
+    #         fi = fitness(np.array(detect_results).reshape(1, -1))  #目标检测评价指标
 
-            msg = 'Epoch: [{0}]    Loss({loss:.3f})\n' \
-                      'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
-                      'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
-                          epoch,  loss=total_loss, 
-                          p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
-                          t_inf=times[0], t_nms=times[1])
-            logger.info(msg)
+    #         msg = 'Epoch: [{0}]    Loss({loss:.3f})\n' \
+    #                   'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
+    #                   'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
+    #                       epoch,  loss=total_loss, 
+    #                       p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
+    #                       t_inf=times[0], t_nms=times[1])
+    #         logger.info(msg)
 
-            # if perf_indicator >= best_perf:
-            #     best_perf = perf_indicator
-            #     best_model = True
-            # else:
-            #     best_model = False
+    #         # if perf_indicator >= best_perf:
+    #         #     best_perf = perf_indicator
+    #         #     best_model = True
+    #         # else:
+    #         #     best_model = False
 
-        # save checkpoint model and best model
-        if rank in [-1, 0]:
-            savepath = os.path.join(final_output_dir, f'epoch-{epoch}.pth')
-            logger.info('=> saving checkpoint to {}'.format(savepath))
-            save_checkpoint(
-                epoch=epoch,
-                name=cfg.MODEL.NAME,
-                model=model,
-                # 'best_state_dict': model.module.state_dict(),
-                # 'perf': perf_indicator,
-                optimizer=optimizer,
-                output_dir=final_output_dir,
-                filename=f'epoch-{epoch}.pth'
-            )
-            save_checkpoint(
-                epoch=epoch,
-                name=cfg.MODEL.NAME,
-                model=model,
-                # 'best_state_dict': model.module.state_dict(),
-                # 'perf': perf_indicator,
-                optimizer=optimizer,
-                output_dir=os.path.join(cfg.LOG_DIR, cfg.DATASET.DATASET),
-                filename='checkpoint.pth'
-            )
+    #     # save checkpoint model and best model
+    #     if rank in [-1, 0]:
+    #         savepath = os.path.join(final_output_dir, f'epoch-{epoch}.pth')
+    #         logger.info('=> saving checkpoint to {}'.format(savepath))
+    #         save_checkpoint(
+    #             epoch=epoch,
+    #             name=cfg.MODEL.NAME,
+    #             model=model,
+    #             # 'best_state_dict': model.module.state_dict(),
+    #             # 'perf': perf_indicator,
+    #             optimizer=optimizer,
+    #             output_dir=final_output_dir,
+    #             filename=f'epoch-{epoch}.pth'
+    #         )
+    #         save_checkpoint(
+    #             epoch=epoch,
+    #             name=cfg.MODEL.NAME,
+    #             model=model,
+    #             # 'best_state_dict': model.module.state_dict(),
+    #             # 'perf': perf_indicator,
+    #             optimizer=optimizer,
+    #             output_dir=os.path.join(cfg.LOG_DIR, cfg.DATASET.DATASET),
+    #             filename='checkpoint.pth'
+    #         )
             
-    if rank in [-1, 0]:
-        logger.info('freeze lane detection head...')
-        for k, v in model.named_parameters():
-            v.requires_grad = True  # train all layers
-            if k.split(".")[1] in Det_Head_para_idx:
-                print('freezing %s' % k)
-                v.requires_grad = False
+    # if rank in [-1, 0]:
+    #     logger.info('freeze lane detection head...')
+    #     for k, v in model.named_parameters():
+    #         v.requires_grad = True  # train all layers
+    #         if k.split(".")[1] in Det_Head_para_idx:
+    #             print('freezing %s' % k)
+    #             v.requires_grad = False
 
     from data.dataloader import get_train_loader
         
