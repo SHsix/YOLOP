@@ -31,7 +31,7 @@ def get_loss_dict(cfg):
         loss_dict = {
             'name': ['cls_loss', 'relation_loss', 'aux_loss', 'relation_dis'],
             'op': [SoftmaxFocalLoss(2), ParsingRelationLoss(), torch.nn.CrossEntropyLoss(), ParsingRelationDis()],
-            'weight': [1.0, cfg.LANE.SIM_LOSS, cfg.LANE.SHP_LOSS],
+            'weight': [1.0, cfg.LANE.SIM_LOSS, 1.0,  cfg.LANE.SHP_LOSS],
             'data_src': [('cls_out', 'cls_label'), ('cls_out',), ('seg_out', 'seg_label'), ('cls_out',)]
         }
     else:
