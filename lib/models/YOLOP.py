@@ -133,6 +133,7 @@ class MCnet(nn.Module):
             # else -> result -> [cls]
             if self.aux_seg:
                 if i == self.lane_seg_idx or i == self.lane_index:
+                    print(x.shape)
                     lane_out.append(x)
             else:
                 if i == self.lane_index:
