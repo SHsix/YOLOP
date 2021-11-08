@@ -187,14 +187,10 @@ class Detect_lane(nn.Module):
         # [64, 256, 32, 32]
         x = self.pool(x)
         # [64, 8, 32, 32]
-        x = x.view(-1, 8 * 16 * 16)
-        print(x.shape)
-        x = self.cls(x)
-        print(x.shape)
-        
+        x = x.view(-1, 8 * 32 * 32)
+        x = self.cls(x)    
         x = x.view(-1, *self.cls_dim)
-        
-        print('last', x.shape)
+
         return x
 
 class Detect(nn.Module):
