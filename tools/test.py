@@ -86,10 +86,10 @@ def main():
     checkpoint_file = args.weights
     logger.info("=> loading checkpoint '{}'".format(checkpoint_file))
     checkpoint = torch.load(checkpoint_file)
-    # checkpoint_dict = checkpoint['state_dict']
+    checkpoint_dict = checkpoint['state_dict']
     # checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
-    # model_dict.update(checkpoint_dict)
-    model_dict.update(checkpoint)
+    model_dict.update(checkpoint_dict)
+    # model_dict.update(checkpoint)
     
     model.load_state_dict(model_dict)
     logger.info("=> loaded checkpoint '{}' ".format(checkpoint_file))
