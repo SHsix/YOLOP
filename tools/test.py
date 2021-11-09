@@ -57,7 +57,7 @@ def main():
     logger.info(pprint.pformat(args))
     logger.info(cfg)
     
-    cfg.LANE.AUX_SEG = False
+    # cfg.LANE.AUX_SEG = False
     
     writer_dict = {
         'writer': SummaryWriter(log_dir=tb_log_dir),
