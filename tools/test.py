@@ -36,7 +36,7 @@ def parse_args():
                         help='log directory',
                         type=str,
                         default='runs/')
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-40.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-08-10-25/final_state.pth', help='model.pth path(s)')
     parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, help='IOU threshold for NMS')
     args = parser.parse_args()
@@ -86,9 +86,11 @@ def main():
     checkpoint_file = args.weights
     logger.info("=> loading checkpoint '{}'".format(checkpoint_file))
     checkpoint = torch.load(checkpoint_file)
-    checkpoint_dict = checkpoint['state_dict']
+    # checkpoint_dict = checkpoint['state_dict']
     # checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
-    model_dict.update(checkpoint_dict)
+    # model_dict.update(checkpoint_dict)
+    model_dict.update(checkpoint)
+    
     model.load_state_dict(model_dict)
     logger.info("=> loaded checkpoint '{}' ".format(checkpoint_file))
 
@@ -131,8 +133,6 @@ def main():
     )
     fi = fitness(np.array(detect_results).reshape(1, -1))
     msg =   'Test:    Loss({loss:.3f})\n' \
-            'Driving area Segment: Acc({da_seg_acc:.3f})    IOU ({da_seg_iou:.3f})    mIOU({da_seg_miou:.3f})\n' \
-                      'Lane line Segment: Acc({ll_seg_acc:.3f})    IOU ({ll_seg_iou:.3f})  mIOU({ll_seg_miou:.3f})\n' \
                       'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
                       'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
                           loss=total_loss, 
