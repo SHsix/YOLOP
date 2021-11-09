@@ -113,14 +113,6 @@ def main():
         ])
     )
 
-    # valid_loader = DataLoaderX(
-    #     valid_dataset,
-    #     batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
-    #     shuffle=False,
-    #     num_workers=cfg.WORKERS,
-    #     pin_memory=cfg.PIN_MEMORY,
-    #     collate_fn=dataset.AutoDriveDataset.collate_fn
-    # )
     valid_loader = DataLoaderX(
         valid_dataset,
         batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
@@ -132,7 +124,7 @@ def main():
     print('load data finished')
 
     epoch = 0 #special for test
-    da_segment_results,ll_segment_results,detect_results, total_loss,maps, times = validate(
+    detect_results, total_loss, maps, times = validate(
         epoch,cfg, valid_loader, valid_dataset, model, criterion,
         final_output_dir, tb_log_dir, writer_dict,
         logger, device
@@ -143,8 +135,7 @@ def main():
                       'Lane line Segment: Acc({ll_seg_acc:.3f})    IOU ({ll_seg_iou:.3f})  mIOU({ll_seg_miou:.3f})\n' \
                       'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
                       'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
-                          loss=total_loss, da_seg_acc=da_segment_results[0],da_seg_iou=da_segment_results[1],da_seg_miou=da_segment_results[2],
-                          ll_seg_acc=ll_segment_results[0],ll_seg_iou=ll_segment_results[1],ll_seg_miou=ll_segment_results[2],
+                          loss=total_loss, 
                           p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
                           t_inf=times[0], t_nms=times[1])
     logger.info(msg)
