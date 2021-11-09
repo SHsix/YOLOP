@@ -194,14 +194,6 @@ def main():
             #cfg.NEED_AUTOANCHOR = False     #disable autoanchor
         # model = model.to(device)
 
- 
-        logger.info('freeze lane detection head...')
-        for k, v in model.named_parameters():
-            v.requires_grad = True  # train all layers
-            if k.split(".")[1] in lane_Head_para_idx:
-                print('freezing %s' % k)
-                v.requires_grad = False
-
     if rank == -1 and torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
         # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
@@ -238,16 +230,32 @@ def main():
     num_warmup = max(round(cfg.TRAIN.WARMUP_EPOCHS * num_batch), 1000)
     scaler = amp.GradScaler(enabled=device.type != 'cpu')
     
+    # lane parts
+    from data.dataloader import get_train_loader
+        
+    from utils.dist_utils import dist_print, dist_tqdm, is_main_process, DistSummaryWriter
+    from utils.factory import get_metric_dict, get_loss_dict
+    from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU, update_metrics, reset_metrics
+    
+    distributed  = world_size > 1
+    print("begin to load lane data")              
+    lane_train_loader, cls_num_per_lane = get_train_loader(cfg.LANE.BATCH_SIZE, cfg.LANE.DATA_ROOT, cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
+    
+    lane_optimizer = get_optimizer(cfg, model)
+    lane_metric_dict = get_metric_dict(cfg)
+    lane_loss_dict = get_loss_dict(cfg)
     
     print('=> start training...')
     
-    
-    
-    
-    
-    
-    
     for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
+        
+        logger.info('freeze lane detection head...')
+        for k, v in model.named_parameters():
+            v.requires_grad = True  # train all layers
+            if k.split(".")[1] in lane_Head_para_idx:
+                # print('freezing %s' % k)
+                v.requires_grad = False
+                
         if rank != -1:
             ob_train_loader.sampler.set_epoch(epoch)
         # train for one epoch
@@ -267,13 +275,23 @@ def main():
             fi = fitness(np.array(detect_results).reshape(1, -1))  #目标检测评价指标
 
             msg = 'Epoch: [{0}]    Loss({loss:.3f})\n' \
-                      'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
-                      'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
-                          epoch,  loss=total_loss, 
-                          p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
-                          t_inf=times[0], t_nms=times[1])
+                    'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
+                    'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
+                    epoch,  loss=total_loss, 
+                    p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
+                    t_inf=times[0], t_nms=times[1])
             logger.info(msg)
 
+
+        logger.info('freeze object detection head...')
+        for k, v in model.named_parameters():
+            v.requires_grad = True  # train all layers
+            if k.split(".")[1] in Det_Head_para_idx:
+                # print('freezing %s' % k)
+                v.requires_grad = False
+
+        
+        lane_train(model, lane_train_loader, lane_loss_dict, lane_optimizer, lr_scheduler,logger, epoch, lane_metric_dict, cfg.LANE.AUX_SEG)
             # if perf_indicator >= best_perf:
             #     best_perf = perf_indicator
             #     best_model = True
@@ -305,44 +323,20 @@ def main():
                 filename='checkpoint.pth'
             )
             
-    if rank in [-1, 0]:
-        logger.info('freeze lane detection head...')
-        for k, v in model.named_parameters():
-            v.requires_grad = True  # train all layers
-            if k.split(".")[1] in Det_Head_para_idx:
-                print('freezing %s' % k)
-                v.requires_grad = False
 
-    from data.dataloader import get_train_loader
-        
-    from utils.dist_utils import dist_print, dist_tqdm, is_main_process, DistSummaryWriter
-    from utils.factory import get_metric_dict, get_loss_dict
-    from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU, update_metrics, reset_metrics
-    
-    distributed  = world_size > 1
-    print("begin to load lane data")              
-    lane_train_loader, cls_num_per_lane = get_train_loader(cfg.LANE.BATCH_SIZE, cfg.LANE.DATA_ROOT, cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
-    
-    lane_optimizer = get_optimizer(cfg, model)
-    lane_metric_dict = get_metric_dict(cfg)
-    lane_loss_dict = get_loss_dict(cfg)
-    
-    for epoch in range(begin_epoch+1, cfg.LANE.END_EPOCH+1):
-         lane_train(model, lane_train_loader, lane_loss_dict, lane_optimizer, lr_scheduler,logger, epoch, lane_metric_dict, cfg.LANE.AUX_SEG)
-
-    # save final model
-    if rank in [-1, 0]:
-        final_model_state_file = os.path.join(
-            final_output_dir, 'final_state.pth'
-        )
-        logger.info('=> saving final model state to {}'.format(
-            final_model_state_file)
-        )
-        model_state = model.module.state_dict() if is_parallel(model) else model.state_dict()
-        torch.save(model_state, final_model_state_file)
-        writer_dict['writer'].close()
-    else:
-        dist.destroy_process_group()
+    # # save final model
+    # if rank in [-1, 0]:
+    #     final_model_state_file = os.path.join(
+    #         final_output_dir, 'final_state.pth'
+    #     )
+    #     logger.info('=> saving final model state to {}'.format(
+    #         final_model_state_file)
+    #     )
+    #     model_state = model.module.state_dict() if is_parallel(model) else model.state_dict()
+    #     torch.save(model_state, final_model_state_file)
+    #     writer_dict['writer'].close()
+    # else:
+    #     dist.destroy_process_group()
 
 
 
