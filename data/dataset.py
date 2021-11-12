@@ -20,7 +20,7 @@ class LaneTestDataset(torch.utils.data.Dataset):
         with open(list_path, 'r') as f:
             self.list = f.readlines()
         self.list = [l[1:] if l[0] == '/' else l for l in self.list]  # exclude the incorrect path prefix '/' of CULane
-
+        self.img_size = 640
 
     def __getitem__(self, index):
         name = self.list[index].split()[0]
