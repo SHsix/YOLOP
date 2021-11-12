@@ -213,79 +213,79 @@ def detect(cfg,opt):
             out_j = loc
 
 
-    #     # Inference
-       
-   
-
-        # if i == 0:
-        #     print(det_out)
-        inf_out, _ = det_out
-        inf_time.update(t2-t1,imgs.size(0))
-
-
-        t2 = time_synchronized()
-        # if i == 0:
-        #     print(det_out)
-        inf_out, _ = det_out
-        inf_time.update(t2-t1,imgs.size(0))
-
-        # Apply NMS
-        t3 = time_synchronized()
-        det_pred = non_max_suppression(inf_out, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False)
-        t4 = time_synchronized()
-
-        nms_time.update(t4-t3,imgs.size(0))
-        det=det_pred[0]
-
-    # self.sources, img, img0[0], None, shapes
-    # for i, (path, img, img_det, vid_cap,shapes) 
-
-        # save_path = str(opt.save_dir +'/'+ Path(path).name) if dataset.mode != 'stream' else str(opt.save_dir + '/' + "web.mp4")
+        #     # Inference
         
-        
-        _, _, height, width = imgs.shape
-        h,w,_=img_det.shape
-        pad_w, pad_h = shapes[1][1]
-        pad_w = int(pad_w)
-        pad_h = int(pad_h)
-        ratio = shapes[1][0][1]
+    
 
-        vis = cv2.imread(os.path.join(cfg.LANE.DATA_ROOT,names[0]))
-        if len(det):
-            det[:,:4] = scale_coords(ob_img.shape[2:],det[:,:4],img_det.shape).round()
-            for *xyxy,conf,cls in reversed(det):
-                label_det_pred = f'{names[int(cls)]} {conf:.2f}'
-                plot_one_box(xyxy, vis , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
-        
-        # if dataset.mode == 'images':
-        #     cv2.imwrite(save_path,img_det)
-
-        # elif dataset.mode == 'video':
-        #     if vid_path != save_path:  # new video
-        #         vid_path = save_path
-        #         if isinstance(vid_writer, cv2.VideoWriter):
-        #             vid_writer.release()  # release previous video writer
-
-        #         fourcc = 'mp4v'  # output video codec
-        #         fps = vid_cap.get(cv2.CAP_PROP_FPS)
-        #         h,w,_=img_det.shape
-        #         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*fourcc), fps, (w, h))
-        #     vid_writer.write(img_det)
-        
-        # else:
-        #     cv2.imshow('image', img_det)
-        #     cv2.waitKey(1)  # 1 millisecond
-        # vout.release()
+            # if i == 0:
+            #     print(det_out)
+            inf_out, _ = det_out
+            inf_time.update(t2-t1,imgs.size(0))
 
 
-                # import pdb; pdb.set_trace()
-        for i in range(out_j.shape[1]):
-            if np.sum(out_j[:, i] != 0) > 2:
-                for k in range(out_j.shape[0]):
-                    if out_j[k, i] > 0:
-                        ppp = (int(out_j[k, i] * col_sample_w * img_w / 256) - 1, int(img_h * (row_anchor[cls_num_per_lane-1-k]/256)) - 1 )
-                        cv2.circle(vis,ppp,5,(0,255,0),-1)
-        vout.write(vis)
+            t2 = time_synchronized()
+            # if i == 0:
+            #     print(det_out)
+            inf_out, _ = det_out
+            inf_time.update(t2-t1,imgs.size(0))
+
+            # Apply NMS
+            t3 = time_synchronized()
+            det_pred = non_max_suppression(inf_out, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False)
+            t4 = time_synchronized()
+
+            nms_time.update(t4-t3,imgs.size(0))
+            det=det_pred[0]
+
+        # self.sources, img, img0[0], None, shapes
+        # for i, (path, img, img_det, vid_cap,shapes) 
+
+            # save_path = str(opt.save_dir +'/'+ Path(path).name) if dataset.mode != 'stream' else str(opt.save_dir + '/' + "web.mp4")
+            
+            
+            _, _, height, width = imgs.shape
+            h,w,_=img_det.shape
+            pad_w, pad_h = shapes[1][1]
+            pad_w = int(pad_w)
+            pad_h = int(pad_h)
+            ratio = shapes[1][0][1]
+
+            vis = cv2.imread(os.path.join(cfg.LANE.DATA_ROOT,names[0]))
+            if len(det):
+                det[:,:4] = scale_coords(ob_img.shape[2:],det[:,:4],img_det.shape).round()
+                for *xyxy,conf,cls in reversed(det):
+                    label_det_pred = f'{names[int(cls)]} {conf:.2f}'
+                    plot_one_box(xyxy, vis , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
+            
+            # if dataset.mode == 'images':
+            #     cv2.imwrite(save_path,img_det)
+
+            # elif dataset.mode == 'video':
+            #     if vid_path != save_path:  # new video
+            #         vid_path = save_path
+            #         if isinstance(vid_writer, cv2.VideoWriter):
+            #             vid_writer.release()  # release previous video writer
+
+            #         fourcc = 'mp4v'  # output video codec
+            #         fps = vid_cap.get(cv2.CAP_PROP_FPS)
+            #         h,w,_=img_det.shape
+            #         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*fourcc), fps, (w, h))
+            #     vid_writer.write(img_det)
+            
+            # else:
+            #     cv2.imshow('image', img_det)
+            #     cv2.waitKey(1)  # 1 millisecond
+            # vout.release()
+
+
+                    # import pdb; pdb.set_trace()
+            for i in range(out_j.shape[1]):
+                if np.sum(out_j[:, i] != 0) > 2:
+                    for k in range(out_j.shape[0]):
+                        if out_j[k, i] > 0:
+                            ppp = (int(out_j[k, i] * col_sample_w * img_w / 256) - 1, int(img_h * (row_anchor[cls_num_per_lane-1-k]/256)) - 1 )
+                            cv2.circle(vis,ppp,5,(0,255,0),-1)
+            vout.write(vis)
 
 # /home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-40.pth
 
