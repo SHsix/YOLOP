@@ -75,20 +75,19 @@ def detect(cfg,opt):
     #     model.half()  # to FP16
 
     # Set Dataloader
-    if opt.source.isnumeric():
-        cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(opt.source, img_size=opt.img_size)
-        bs = len(dataset)  # batch_size
-    else:
-        dataset = LoadImages(opt.source, img_size=opt.img_size)
-        bs = 1  # batch_size
-    for i, (path, img, img_det, vid_cap,shapes) in tqdm(enumerate(dataset),total = len(dataset)):
-        img = transform(img).to(device)
+    # if opt.source.isnumeric():
+    #     cudnn.benchmark = True  # set True to speed up constant image size inference
+    #     dataset = LoadStreams(opt.source, img_size=opt.img_size)
+    #     bs = len(dataset)  # batch_size
+    # else:
+    #     dataset = LoadImages(opt.source, img_size=opt.img_size)
+    #     bs = 1  # batch_size
+
 
 
     # # Get names and colors
-    # names = model.module.names if hasattr(model, 'module') else model.names
-    # colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
+    names = model.module.names if hasattr(model, 'module') else model.names
+    colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
 
     # # Run inference
@@ -183,7 +182,7 @@ def detect(cfg,opt):
         print(split[:-3]+'avi')
         vout = cv2.VideoWriter(split[:-3]+'avi', fourcc , 30.0, (img_w, img_h))
         for i, data in enumerate(tqdm(loader)):
-            imgs, names = data
+            imgs, names, ob_img, img_det, shapes = data
             imgs = imgs.cuda()
             t1 = time_synchronized()
             with torch.no_grad():
@@ -209,49 +208,45 @@ def detect(cfg,opt):
        
    
 
-    #     # if i == 0:
-    #     #     print(det_out)
-    #     inf_out, _ = det_out
-    #     inf_time.update(t2-t1,imgs.size(0))
+        # if i == 0:
+        #     print(det_out)
+        inf_out, _ = det_out
+        inf_time.update(t2-t1,imgs.size(0))
 
 
-    #     t2 = time_synchronized()
-    #     # if i == 0:
-    #     #     print(det_out)
-    #     inf_out, _ = det_out
-    #     inf_time.update(t2-t1,imgs.size(0))
+        t2 = time_synchronized()
+        # if i == 0:
+        #     print(det_out)
+        inf_out, _ = det_out
+        inf_time.update(t2-t1,imgs.size(0))
 
-    #     # Apply NMS
-    #     t3 = time_synchronized()
-    #     det_pred = non_max_suppression(inf_out, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False)
-    #     t4 = time_synchronized()
+        # Apply NMS
+        t3 = time_synchronized()
+        det_pred = non_max_suppression(inf_out, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False)
+        t4 = time_synchronized()
 
-    #     nms_time.update(t4-t3,imgs.size(0))
-    #     det=det_pred[0]
+        nms_time.update(t4-t3,imgs.size(0))
+        det=det_pred[0]
 
-    # # self.sources, img, img0[0], None, shapes
-    # # for i, (path, img, img_det, vid_cap,shapes) 
+    # self.sources, img, img0[0], None, shapes
+    # for i, (path, img, img_det, vid_cap,shapes) 
 
-    #     # save_path = str(opt.save_dir +'/'+ Path(path).name) if dataset.mode != 'stream' else str(opt.save_dir + '/' + "web.mp4")
+        # save_path = str(opt.save_dir +'/'+ Path(path).name) if dataset.mode != 'stream' else str(opt.save_dir + '/' + "web.mp4")
         
         
-    #     img, ratio, pad = letterbox_for_img(img0, new_shape=self.img_size, auto=True)
-    #     h, w = img.shape[:2]
-    #     shapes = (h0, w0), ((h / h0, w / w0), pad)
+        _, _, height, width = imgs.shape
+        h,w,_=img_det.shape
+        pad_w, pad_h = shapes[1][1]
+        pad_w = int(pad_w)
+        pad_h = int(pad_h)
+        ratio = shapes[1][0][1]
 
-        
-    #     _, _, height, width = imgs.shape
-    #     h,w,_=img_det.shape
-    #     pad_w, pad_h = shapes[1][1]
-    #     pad_w = int(pad_w)
-    #     pad_h = int(pad_h)
-    #     ratio = shapes[1][0][1]
-
-    #     if len(det):
-    #         det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
-    #         for *xyxy,conf,cls in reversed(det):
-    #             label_det_pred = f'{names[int(cls)]} {conf:.2f}'
-    #             plot_one_box(xyxy, img_det , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
+        vis = cv2.imread(os.path.join(cfg.LANE.DATA_ROOT,names[0]))
+        if len(det):
+            det[:,:4] = scale_coords(ob_img.shape[2:],det[:,:4],img_det.shape).round()
+            for *xyxy,conf,cls in reversed(det):
+                label_det_pred = f'{names[int(cls)]} {conf:.2f}'
+                plot_one_box(xyxy, vis , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
         
         # if dataset.mode == 'images':
         #     cv2.imwrite(save_path,img_det)
@@ -275,7 +270,6 @@ def detect(cfg,opt):
 
 
                 # import pdb; pdb.set_trace()
-        vis = cv2.imread(os.path.join(cfg.LANE.DATA_ROOT,names[0]))
         for i in range(out_j.shape[1]):
             if np.sum(out_j[:, i] != 0) > 2:
                 for k in range(out_j.shape[0]):

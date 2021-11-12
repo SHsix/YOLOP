@@ -5,6 +5,7 @@ import pdb
 import numpy as np
 import cv2
 from data.mytransforms import find_start_pos
+from ..utils import letterbox_for_img
 
 
 def loader_func(path):
@@ -25,11 +26,34 @@ class LaneTestDataset(torch.utils.data.Dataset):
         name = self.list[index].split()[0]
         img_path = os.path.join(self.path, name)
         img = loader_func(img_path)
-        print('img', img.size)
+        
+    
+        
+        img0 = cv2.imread(img_path, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)  # BGR
+        #img0 = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
+        assert img0 is not None, 'Image Not Found ' + img_path
+
+        h0, w0 = img0.shape[:2]
+     
+
+        # Padded resize
+        ob_img, ratio, pad = letterbox_for_img(img0, new_shape=self.img_size, auto=True)
+        h, w = img.shape[:2]
+        shapes = (h0, w0), ((h / h0, w / w0), pad)
+
+        # Convert
+        #img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+        ob_img = np.ascontiguousarray(ob_img)
+
+
+        # cv2.imwrite(path + '.letterbox.jpg', 255 * img.transpose((1, 2, 0))[:, :, ::-1])  # save letterbox image
+        # return path, img, img0, self.cap, shapes
+
         if self.img_transform is not None:
             img = self.img_transform(img)
+            ob_img = self.img_transform(ob_img)
 
-        return img, name
+        return img, name, ob_img, img0, shapes
 
     def __len__(self):
         return len(self.list)
