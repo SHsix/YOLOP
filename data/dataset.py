@@ -38,7 +38,7 @@ class LaneTestDataset(torch.utils.data.Dataset):
 
         # Padded resize
         ob_img, ratio, pad = letterbox_for_img(img0, new_shape=self.img_size, auto=True)
-        h, w = img.shape[:2]
+        h, w = ob_img.shape[:2]
         shapes = (h0, w0), ((h / h0, w / w0), pad)
 
         # Convert
