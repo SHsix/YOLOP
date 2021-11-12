@@ -36,7 +36,7 @@ normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     )
 
-transform=transforms.Compose([
+ob_transform=transforms.Compose([
             transforms.ToTensor(),
             normalize,
         ])
@@ -74,14 +74,14 @@ def detect(cfg,opt):
     # if half:
     #     model.half()  # to FP16
 
-    # Set Dataloader
-    if opt.source.isnumeric():
-        cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(opt.source, img_size=opt.img_size)
-        bs = len(dataset)  # batch_size
-    else:
-        dataset = LoadImages(opt.source, img_size=opt.img_size)
-        bs = 1  # batch_size
+    # # Set Dataloader
+    # if opt.source.isnumeric():
+    #     cudnn.benchmark = True  # set True to speed up constant image size inference
+    #     dataset = LoadStreams(opt.source, img_size=opt.img_size)
+    #     bs = len(dataset)  # batch_size
+    # else:
+    #     dataset = LoadImages(opt.source, img_size=opt.img_size)
+    #     bs = 1  # batch_size
 
 
 
@@ -101,10 +101,10 @@ def detect(cfg,opt):
     inf_time = AverageMeter()
     nms_time = AverageMeter()
     
-    for i, (path, img, img_det, vid_cap,shapes) in tqdm(enumerate(dataset),total = len(dataset)):
-        print(type(img))
-        img = transform(img).to(device)
-        print(type(img))
+    # for i, (path, img, img_det, vid_cap,shapes) in tqdm(enumerate(dataset),total = len(dataset)):
+    #     print(type(img))
+    #     img = transform(img).to(device)
+    #     print(type(img))
     #     img = img.half() if half else img.float()  # uint8 to fp16/32
     #     if img.ndimension() == 3:
     #         img = img.unsqueeze(0)
@@ -185,8 +185,9 @@ def detect(cfg,opt):
         vout = cv2.VideoWriter(split[:-3]+'avi', fourcc , 30.0, (img_w, img_h))
         for i, data in enumerate(tqdm(loader)):
             imgs, names, ob_img, img_det, shapes = data
-
-            ob_img = transform(ob_img).to(device)
+            print(type(ob_img))
+            ob_img = ob_transform(ob_img).to(device)
+            print(type(ob_img))
             if ob_img.ndimension() == 3:
                 ob_img = ob_img.unsqueeze(0)
 
