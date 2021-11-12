@@ -101,8 +101,9 @@ def detect(cfg,opt):
     inf_time = AverageMeter()
     nms_time = AverageMeter()
     
-    # for i, (path, img, img_det, vid_cap,shapes) in tqdm(enumerate(dataset),total = len(dataset)):
-    #     img = transform(img).to(device)
+    for i, (path, img, img_det, vid_cap,shapes) in tqdm(enumerate(dataset),total = len(dataset)):
+        img = transform(img).to(device)
+        print(type(img))
     #     img = img.half() if half else img.float()  # uint8 to fp16/32
     #     if img.ndimension() == 3:
     #         img = img.unsqueeze(0)
@@ -183,7 +184,7 @@ def detect(cfg,opt):
         vout = cv2.VideoWriter(split[:-3]+'avi', fourcc , 30.0, (img_w, img_h))
         for i, data in enumerate(tqdm(loader)):
             imgs, names, ob_img, img_det, shapes = data
-            
+
             ob_img = transform(ob_img).to(device)
             if ob_img.ndimension() == 3:
                 ob_img = ob_img.unsqueeze(0)
