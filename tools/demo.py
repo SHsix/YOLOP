@@ -74,14 +74,14 @@ def detect(cfg,opt):
     # if half:
     #     model.half()  # to FP16
 
-    # Set Dataloader
-    # if opt.source.isnumeric():
-    #     cudnn.benchmark = True  # set True to speed up constant image size inference
-    #     dataset = LoadStreams(opt.source, img_size=opt.img_size)
-    #     bs = len(dataset)  # batch_size
-    # else:
-    #     dataset = LoadImages(opt.source, img_size=opt.img_size)
-    #     bs = 1  # batch_size
+    Set Dataloader
+    if opt.source.isnumeric():
+        cudnn.benchmark = True  # set True to speed up constant image size inference
+        dataset = LoadStreams(opt.source, img_size=opt.img_size)
+        bs = len(dataset)  # batch_size
+    else:
+        dataset = LoadImages(opt.source, img_size=opt.img_size)
+        bs = 1  # batch_size
 
 
 
