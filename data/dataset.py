@@ -5,7 +5,7 @@ import pdb
 import numpy as np
 import cv2
 from data.mytransforms import find_start_pos
-from ..lib.utils import letterbox_for_img
+from lib.utils import letterbox_for_img
 
 
 def loader_func(path):
