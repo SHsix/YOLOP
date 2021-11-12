@@ -32,14 +32,7 @@ from tqdm import tqdm
 
 from data.dataset import LaneTestDataset
 from data.constant import culane_row_anchor
-normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
 
-ob_transform=transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])
 
 
 def detect(cfg,opt):
@@ -162,8 +155,16 @@ def detect(cfg,opt):
     # print('Results saved to %s' % Path(opt.save_dir))
     # print('Done. (%.3fs)' % (time.time() - t0))
     # print('inf : (%.4fs/frame)   nms : (%.4fs/frame)' % (inf_time.avg,nms_time.avg))
-
     model.eval()
+    normalize = transforms.Normalize(
+            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        )
+
+    ob_transform=transforms.Compose([
+                transforms.ToTensor(),
+                normalize,
+            ])
+    
     cls_num_per_lane = 18
     img_transforms = transforms.Compose([
         transforms.Resize((256, 256)),
@@ -172,7 +173,7 @@ def detect(cfg,opt):
     ])
     if cfg.LANE.DATASET == 'CULane':
         splits = ['test0_normal.txt', 'test1_crowd.txt', 'test2_hlight.txt', 'test3_shadow.txt', 'test4_noline.txt', 'test5_arrow.txt', 'test6_curve.txt', 'test7_cross.txt', 'test8_night.txt']
-        datasets = [LaneTestDataset(cfg.LANE.DATA_ROOT,os.path.join(cfg.LANE.DATA_ROOT, 'list/test_split/'+split),img_transform = img_transforms) for split in splits]
+        datasets = [LaneTestDataset(cfg.LANE.DATA_ROOT,os.path.join(cfg.LANE.DATA_ROOT, 'list/test_split/'+split),img_transform = [img_transforms, ob_transform]) for split in splits]
         img_w, img_h = 1640, 590
         row_anchor = culane_row_anchor
     else:

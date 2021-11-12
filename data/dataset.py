@@ -50,7 +50,8 @@ class LaneTestDataset(torch.utils.data.Dataset):
         # return path, img, img0, self.cap, shapes
 
         if self.img_transform is not None:
-            img = self.img_transform(img)
+            img = self.img_transform[0](img)
+            ob_img = self.img_transform[1](ob_img)
 
         return img, name, ob_img, img0, shapes
 
