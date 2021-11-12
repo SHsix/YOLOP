@@ -82,6 +82,9 @@ def detect(cfg,opt):
     else:
         dataset = LoadImages(opt.source, img_size=opt.img_size)
         bs = 1  # batch_size
+    for i, (path, img, img_det, vid_cap,shapes) in tqdm(enumerate(dataset),total = len(dataset)):
+        
+        img = transform(img).to(device)
 
 
     # # Get names and colors
