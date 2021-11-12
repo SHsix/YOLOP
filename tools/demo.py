@@ -186,11 +186,10 @@ def detect(cfg,opt):
         vout = cv2.VideoWriter(split[:-3]+'avi', fourcc , 30.0, (img_w, img_h))
         for i, data in enumerate(tqdm(loader)):
             imgs, names, ob_img, img_det, shapes = data
-            print('test', type(ob_img))
-            ob_img = ob_transform(ob_img).to(device)
-            print(type(ob_img))
-            if ob_img.ndimension() == 3:
-                ob_img = ob_img.unsqueeze(0)
+            # print('test', type(ob_img))
+            # ob_img = ob_transform(ob_img).to(device)
+            # print(type(ob_img))
+
 
 
             imgs = imgs.cuda()

@@ -52,6 +52,9 @@ class LaneTestDataset(torch.utils.data.Dataset):
         if self.img_transform is not None:
             img = self.img_transform[0](img)
             ob_img = self.img_transform[1](ob_img)
+            
+        if ob_img.ndimension() == 3:
+            ob_img = ob_img.unsqueeze(0)
 
         return img, name, ob_img, img0, shapes
 
