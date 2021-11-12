@@ -102,6 +102,7 @@ def detect(cfg,opt):
     nms_time = AverageMeter()
     
     for i, (path, img, img_det, vid_cap,shapes) in tqdm(enumerate(dataset),total = len(dataset)):
+        print(type(img))
         img = transform(img).to(device)
         print(type(img))
     #     img = img.half() if half else img.float()  # uint8 to fp16/32
