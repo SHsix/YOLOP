@@ -54,6 +54,7 @@ _C.LANE.AUX_SEG = True
 _C.LANE.BATCH_SIZE = 128
 _C.LANE.END_EPOCH = 40
 _C.LANE.NUM_LANES = 4
+_C.LANE.TEST_DIR = './tmp'
 
 # lane loss
 _C.LANE.SIM_LOSS = 0.0

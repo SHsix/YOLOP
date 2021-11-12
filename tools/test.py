@@ -24,6 +24,8 @@ from lib.core.general import fitness
 from lib.models import get_net
 from lib.utils.utils import create_logger, select_device
 
+from evaluation.eval_wrapper import eval_lane
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Test Multitask network')
 
@@ -36,13 +38,16 @@ def parse_args():
                         help='log directory',
                         type=str,
                         default='runs/')
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-40.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-09-05-59/epoch-40.pth', help='model.pth path(s)')
     parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, help='IOU threshold for NMS')
     args = parser.parse_args()
 
     return args
-
+#
+# /home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-40.pth
+# /home/YOLOP/runs/BddDataset/_2021-11-09-05-59/epoch-40.pth
+#
 def main():
     # set all the configurations
     args = parse_args()
@@ -58,7 +63,17 @@ def main():
     logger.info(cfg)
     
     # cfg.LANE.AUX_SEG = False
-    
+    cls_num_per_lane = 18
+    distributed = False
+    if 'WORLD_SIZE' in os.environ:
+        distributed = int(os.environ['WORLD_SIZE']) > 1
+
+    if distributed:
+        torch.cuda.set_device(args.local_rank)
+        torch.distributed.init_process_group(backend='nccl', init_method='env://')
+
+
+
     writer_dict = {
         'writer': SummaryWriter(log_dir=tb_log_dir),
         'train_global_steps': 0,
@@ -101,44 +116,51 @@ def main():
 
     print("begin to load data")
     # Data loading
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
+    # normalize = transforms.Normalize(
+    #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    # )
 
-    valid_dataset = eval('dataset.' + cfg.DATASET.DATASET)(
-        cfg=cfg,
-        is_train=False,
-        inputsize=cfg.MODEL.IMAGE_SIZE,
-        transform=transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])
-    )
+    # valid_dataset = eval('dataset.' + cfg.DATASET.DATASET)(
+    #     cfg=cfg,
+    #     is_train=False,
+    #     inputsize=cfg.MODEL.IMAGE_SIZE,
+    #     transform=transforms.Compose([
+    #         transforms.ToTensor(),
+    #         normalize,
+    #     ])
+    # )
 
-    valid_loader = DataLoaderX(
-        valid_dataset,
-        batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
-        shuffle=False,
-        num_workers=cfg.WORKERS,
-        pin_memory=False,
-        collate_fn=dataset.AutoDriveDataset.collate_fn
-    )
-    print('load data finished')
+    # valid_loader = DataLoaderX(
+    #     valid_dataset,
+    #     batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
+    #     shuffle=False,
+    #     num_workers=cfg.WORKERS,
+    #     pin_memory=False,
+    #     collate_fn=dataset.AutoDriveDataset.collate_fn
+    # )
+    # print('load data finished')
 
-    epoch = 0 #special for test
-    detect_results, total_loss, maps, times = validate(
-        epoch,cfg, valid_loader, valid_dataset, model, criterion,
-        final_output_dir, tb_log_dir, writer_dict,
-        logger, device
-    )
-    fi = fitness(np.array(detect_results).reshape(1, -1))
-    msg =   'Test:    Loss({loss:.3f})\n' \
-                      'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
-                      'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
-                          loss=total_loss, 
-                          p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
-                          t_inf=times[0], t_nms=times[1])
-    logger.info(msg)
+    # epoch = 0 #special for test
+    # detect_results, total_loss, maps, times = validate(
+    #     epoch,cfg, valid_loader, valid_dataset, model, criterion,
+    #     final_output_dir, tb_log_dir, writer_dict,
+    #     logger, device
+    # )
+    # fi = fitness(np.array(detect_results).reshape(1, -1))
+    # msg =   'Test:    Loss({loss:.3f})\n' \
+    #                   'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
+    #                   'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
+    #                       loss=total_loss, 
+    #                       p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
+    #                       t_inf=times[0], t_nms=times[1])
+    # logger.info(msg)
+
+
+
+    if not os.path.exists(cfg.LANE.TEST_DIR):
+        os.mkdir(cfg.LANE.TEST_DIR)
+
+    eval_lane(model, cfg.LANE.DATASET, cfg.LANE.DATA_ROOT, cfg.LANE.TEST_DIR, cfg.LANE.GRIDING_NUM, False, distributed)
     print("test finish")
 
 

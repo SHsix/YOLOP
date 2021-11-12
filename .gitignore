@@ -13,3 +13,6 @@ inference/
 datasets/
 log/
 lib/config/default.py
+tmp/
+evaluation/
+*.avi

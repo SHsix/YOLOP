@@ -119,7 +119,6 @@ def main():
     
     print("load model to device")
     model = get_net(cfg).to(device)
-    
 
     # print("load finished")
     #model = model.to(device)
@@ -193,9 +192,10 @@ def main():
                 checkpoint_file, checkpoint['epoch']))
             #cfg.NEED_AUTOANCHOR = False     #disable autoanchor
         # model = model.to(device)
-
-    if rank == -1 and torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
+    if torch.cuda.device_count() > 1:
+        model = torch.nn.DataParallel(model)
+        # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
+        
         # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
     # # DDP mode
     if rank != -1:
