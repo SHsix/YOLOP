@@ -25,7 +25,7 @@ class LaneTestDataset(torch.utils.data.Dataset):
         name = self.list[index].split()[0]
         img_path = os.path.join(self.path, name)
         img = loader_func(img_path)
-
+        print('img', img.shape)
         if self.img_transform is not None:
             img = self.img_transform(img)
 
