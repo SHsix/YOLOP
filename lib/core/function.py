@@ -500,16 +500,30 @@ from utils.common import get_work_dir, get_logger
 import time
 
 
-def inference(net, data_label, use_aux):
+def inference(net, img, cls_label, seg_label, target, use_aux):
     if use_aux:
-        img, cls_label, seg_label = data_label
-        img, cls_label, seg_label = img.cuda(), cls_label.long().cuda(), seg_label.long().cuda()
-        cls_out, seg_out = net(img)[1]
-        return {'cls_out': cls_out, 'cls_label': cls_label, 'seg_out':seg_out, 'seg_label': seg_label}
+        # img, cls_label, seg_label, target, shapes = data_label
+
+        # img = img.to(device, non_blocking=True)
+        # assign_target = []
+        # for tgt in target:
+        #     assign_target.append(tgt.to(device))
+        # target = assign_target
+
+        # img, cls_label, seg_label = img.cuda(), cls_label.long().cuda(), seg_label.long().cuda()
+        
+        det_out, lane_out = net(img)
+        cls_out, seg_out = lane_out
+
+        return {'cls_out': cls_out, 'cls_label': cls_label, \
+                'seg_out':seg_out, 'seg_label': seg_label, \
+                'det_out': det_out, 'target':target, 'model' : net
+                }
     else:
-        img, cls_label = data_label
-        img, cls_label = img.cuda(), cls_label.long().cuda()
-        cls_out = net(img)[1]
+
+        det_out, lane_out = net(img)
+        cls_out, seg_out = lane_out
+
         return {'cls_out': cls_out, 'cls_label': cls_label}
 
 
@@ -528,7 +542,7 @@ def calc_loss(loss_dict, results, logger, global_step):
         data_src = loss_dict['data_src'][i]
 
         datas = [results[src] for src in data_src]
-
+        
         loss_cur = loss_dict['op'][i](*datas)
 
         # if global_step % 20 == 0:
@@ -538,17 +552,27 @@ def calc_loss(loss_dict, results, logger, global_step):
     return loss
 
 
-def lane_train(net, data_loader, loss_dict, optimizer, scheduler,logger, epoch, metric_dict, use_aux):
+def lane_train(net, data_loader, loss_dict, optimizer, scheduler,logger, epoch, metric_dict, use_aux, device):
     net.train()
     progress_bar = dist_tqdm(data_loader)
     t_data_0 = time.time()
-    for b_idx, data_label in enumerate(progress_bar):
+    for b_idx, (img, cls_label, seg_label, target, shapes) in enumerate(progress_bar):
+    # for b_idx, data_label in enumerate(progress_bar):
+
+        img = img.to(device, non_blocking=True)
+        assign_target = []
+        for tgt in target:
+            assign_target.append(tgt.to(device))
+        target = assign_target
+        cls_label, seg_label = cls_label.long().cuda(), seg_label.long().cuda()
+
+
         t_data_1 = time.time()
         reset_metrics(metric_dict)
         global_step = epoch * len(data_loader) + b_idx
 
         t_net_0 = time.time()
-        results = inference(net, data_label, use_aux)
+        results = inference(net, img, cls_label, seg_label, target, use_aux)
 
         loss = calc_loss(loss_dict, results, logger, global_step)
         optimizer.zero_grad()

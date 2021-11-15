@@ -178,14 +178,14 @@ class Detect_lane(nn.Module):
         self.total_dim = np.prod(self.cls_dim)
         
         self.cls = torch.nn.Sequential(
-            torch.nn.Linear(8 * 32 * 32, 1024),
+            torch.nn.Linear(8 * 32 * 80, 1024),
             torch.nn.ReLU(),
             torch.nn.Linear(1024, self.total_dim),
         )
         
     def forward(self, x):
         # [64, 256, 32, 32]
-        if x.shape[-1] != 32:
+        if x.shape[-1] != 80:
             return torch.zeros(1, 3, 1, 1)
         x = self.pool(x)
         # [64, 8, 32, 32]

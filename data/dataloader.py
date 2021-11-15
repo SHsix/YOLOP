@@ -8,63 +8,14 @@ from data.dataset import LaneClsDataset, LaneTestDataset
 from lib.utils import DataLoaderX, torch_distributed_zero_first
 import lib.dataset as dataset
 
-def get_ob_dataloader(cfg, rank):
-    # Data loading
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
-
-    train_dataset = eval('dataset.' + cfg.DATASET.DATASET)(
-        cfg=cfg,
-        is_train=True,
-        inputsize=cfg.MODEL.IMAGE_SIZE,
-        transform=transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])
-    )
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if rank != -1 else None
-
-    train_loader = DataLoaderX(
-        train_dataset,
-        batch_size=cfg.TRAIN.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
-        shuffle=(cfg.TRAIN.SHUFFLE & rank == -1),
-        num_workers=cfg.WORKERS,
-        sampler=train_sampler,
-        pin_memory=cfg.PIN_MEMORY,
-        collate_fn=dataset.AutoDriveDataset.collate_fn
-    )
-    
-
-    if rank in [-1, 0]:
-        valid_dataset = eval('dataset.' + cfg.DATASET.DATASET)(
-            cfg=cfg,
-            is_train=False,
-            inputsize=cfg.MODEL.IMAGE_SIZE,
-            transform=transforms.Compose([
-                transforms.ToTensor(),
-                normalize,
-            ])
-        )
-
-        valid_loader = DataLoaderX(
-            valid_dataset,
-            batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
-            shuffle=False,
-            num_workers=cfg.WORKERS,
-            pin_memory=cfg.PIN_MEMORY,
-            collate_fn=dataset.AutoDriveDataset.collate_fn
-        )
-
-    return train_loader, valid_loader, train_dataset, valid_dataset
 
 def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distributed, num_lanes):
     target_transform = transforms.Compose([
-        mytransforms.FreeScaleMask((256, 256)),
+        mytransforms.FreeScaleMask((32, 80)),
         mytransforms.MaskToTensor(),
     ])
     segment_transform = transforms.Compose([
-        mytransforms.FreeScaleMask((256, 256)),
+        mytransforms.FreeScaleMask((256, 640)),
         mytransforms.MaskToTensor(),
     ])
     img_transform = transforms.Compose([
@@ -72,17 +23,20 @@ def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distr
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ])
-    simu_transform = mytransforms.Compose2([
-        mytransforms.RandomRotate(4),
-        mytransforms.RandomUDoffsetLABEL(66),
-        mytransforms.RandomLROffsetLABEL(128)
+    normalize = transforms.Normalize(
+        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    )
+    cv_transform = transforms.Compose([
+        transforms.ToTensor(),
+        normalize,    
     ])
+
+
     if dataset == 'CULane':
         train_dataset = LaneClsDataset(data_root,
                                            os.path.join(data_root, 'list/train_gt.txt'),
                                            img_transform=img_transform, target_transform=target_transform,
-                                           simu_transform = simu_transform,
-                                           segment_transform=segment_transform, 
+                                           segment_transform=segment_transform, cv_transform = cv_transform,
                                            row_anchor = culane_row_anchor,
                                            griding_num=griding_num, use_aux=use_aux, num_lanes = num_lanes)
         cls_num_per_lane = 18
@@ -95,7 +49,7 @@ def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distr
     else:
         sampler = torch.utils.data.RandomSampler(train_dataset)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=24)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=1)
 
     return train_loader, cls_num_per_lane
 

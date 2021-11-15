@@ -1,4 +1,4 @@
-from utils.loss import SoftmaxFocalLoss, ParsingRelationLoss, ParsingRelationDis
+from utils.loss import SoftmaxFocalLoss, ParsingRelationLoss, ParsingRelationDis, MultiHeadLoss
 from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU
 from utils.dist_utils import DistSummaryWriter
 
@@ -25,14 +25,15 @@ def get_scheduler(optimizer, cfg, iters_per_epoch):
         raise NotImplementedError
     return scheduler
 
-def get_loss_dict(cfg):
+def get_loss_dict(cfg, device):
 
     if cfg.LANE.AUX_SEG:
         loss_dict = {
-            'name': ['cls_loss', 'relation_loss', 'aux_loss', 'relation_dis'],
-            'op': [SoftmaxFocalLoss(2), ParsingRelationLoss(), torch.nn.CrossEntropyLoss(), ParsingRelationDis()],
-            'weight': [1.0, cfg.LANE.SIM_LOSS, 1.0,  cfg.LANE.SHP_LOSS],
-            'data_src': [('cls_out', 'cls_label'), ('cls_out',), ('seg_out', 'seg_label'), ('cls_out',)]
+            'name': ['cls_loss', 'relation_loss', 'aux_loss', 'relation_dis', 'object_loss'],
+            'op': [SoftmaxFocalLoss(2), ParsingRelationLoss(), torch.nn.CrossEntropyLoss(), ParsingRelationDis(), MultiHeadLoss(cfg, device)],
+            'weight': [1.0, cfg.LANE.SIM_LOSS, 1.0,  cfg.LANE.SHP_LOSS, 1.0],
+            'data_src': [('cls_out', 'cls_label'), ('cls_out',), ('seg_out', 'seg_label'), ('cls_out',), \
+                ('det_out', 'target', 'model')]
         }
     else:
         loss_dict = {

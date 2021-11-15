@@ -33,7 +33,7 @@ from lib.utils.utils import get_optimizer
 from lib.utils.utils import save_checkpoint
 from lib.utils.utils import create_logger, select_device
 from lib.utils import run_anchor
-from data.dataloader import get_ob_dataloader
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Multitask network')
@@ -111,6 +111,7 @@ def main():
     device = select_device(logger, batch_size=cfg.TRAIN.BATCH_SIZE_PER_GPU* len(cfg.GPUS)) if not cfg.DEBUG \
         else select_device(logger, 'cpu')
 
+
     if args.local_rank != -1:
         assert torch.cuda.device_count() > args.local_rank
         torch.cuda.set_device(args.local_rank)
@@ -118,6 +119,7 @@ def main():
         dist.init_process_group(backend='nccl', init_method='env://')  # distributed backend
     
     print("load model to device")
+    print(device)
     model = get_net(cfg).to(device)
 
     # print("load finished")
@@ -192,6 +194,7 @@ def main():
                 checkpoint_file, checkpoint['epoch']))
             #cfg.NEED_AUTOANCHOR = False     #disable autoanchor
         # model = model.to(device)
+
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
         # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
@@ -207,28 +210,6 @@ def main():
     model.nc = 1
     # print('bulid model finished')
 
-    print("begin to load object detection data")
-    
-    
-    ob_train_loader, ob_valid_loader, ob_train_dataset, ob_valid_dataset = get_ob_dataloader(cfg, rank)
-    num_batch = len(ob_train_loader)
-    
-    
-    print('load data finished')
-    
-    if rank in [-1, 0]:
-        if cfg.NEED_AUTOANCHOR:
-            logger.info("begin check anchors")
-            run_anchor(logger,ob_train_dataset, model=model, thr=cfg.TRAIN.ANCHOR_THRESHOLD, imgsz=min(cfg.MODEL.IMAGE_SIZE))
-        else:
-            logger.info("anchors loaded successfully")
-            det = model.module.model[model.module.detector_index] if is_parallel(model) \
-                else model.model[model.detector_index]
-            logger.info(str(det.anchors))
-
-    # training
-    num_warmup = max(round(cfg.TRAIN.WARMUP_EPOCHS * num_batch), 1000)
-    scaler = amp.GradScaler(enabled=device.type != 'cpu')
     
     # lane parts
     from data.dataloader import get_train_loader
@@ -243,55 +224,21 @@ def main():
     
     lane_optimizer = get_optimizer(cfg, model)
     lane_metric_dict = get_metric_dict(cfg)
-    lane_loss_dict = get_loss_dict(cfg)
+    lane_loss_dict = get_loss_dict(cfg, device)
     
     print('=> start training...')
     
     for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
         
-        logger.info('freeze lane detection head...')
-        for k, v in model.named_parameters():
-            v.requires_grad = True  # train all layers
-            if k.split(".")[1] in lane_Head_para_idx:
-                # print('freezing %s' % k)
-                v.requires_grad = False
-                
-        if rank != -1:
-            ob_train_loader.sampler.set_epoch(epoch)
-        # train for one epoch
-        obj_train(cfg, ob_train_loader, model, criterion, optimizer, scaler,
-              epoch, num_batch, num_warmup, writer_dict, logger, device, rank)
-        
-        lr_scheduler.step()
-
-        # evaluate on validation set
-        if (epoch % cfg.TRAIN.VAL_FREQ == 0 or epoch == cfg.TRAIN.END_EPOCH) and rank in [-1, 0]:
-            # print('validate')
-            detect_results, total_loss,maps, times = validate(
-                epoch,cfg, ob_valid_loader, ob_valid_dataset, model, criterion,
-                final_output_dir, tb_log_dir, writer_dict,
-                logger, device, rank
-            )
-            fi = fitness(np.array(detect_results).reshape(1, -1))  #目标检测评价指标
-
-            msg = 'Epoch: [{0}]    Loss({loss:.3f})\n' \
-                    'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
-                    'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
-                    epoch,  loss=total_loss, 
-                    p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
-                    t_inf=times[0], t_nms=times[1])
-            logger.info(msg)
-
-
-        logger.info('freeze object detection head...')
-        for k, v in model.named_parameters():
-            v.requires_grad = True  # train all layers
-            if k.split(".")[1] in Det_Head_para_idx:
-                # print('freezing %s' % k)
-                v.requires_grad = False
+        # logger.info('freeze object detection head...')
+        # for k, v in model.named_parameters():
+        #     v.requires_grad = True  # train all layers
+        #     if k.split(".")[1] in Det_Head_para_idx:
+        #         # print('freezing %s' % k)
+        #         v.requires_grad = False
 
         
-        lane_train(model, lane_train_loader, lane_loss_dict, lane_optimizer, lr_scheduler,logger, epoch, lane_metric_dict, cfg.LANE.AUX_SEG)
+        lane_train(model, lane_train_loader, lane_loss_dict, lane_optimizer, lr_scheduler,logger, epoch, lane_metric_dict, cfg.LANE.AUX_SEG, device)
             # if perf_indicator >= best_perf:
             #     best_perf = perf_indicator
             #     best_model = True

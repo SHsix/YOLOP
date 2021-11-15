@@ -1,8 +1,123 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from lib.core.general import bbox_iou
+from lib.core.postprocess import build_targets
 import numpy as np
+
+def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
+    # return positive, negative label smoothing BCE targets
+    return 1.0 - 0.5 * eps, 0.5 * eps
+
+class MultiHeadLoss(nn.Module):
+    def __init__(self,cfg, device, lambdas=None, *args, **kwargs):
+        """
+        Inputs:
+        - losses: (list)[nn.Module, nn.Module, ...]
+        - cfg: config object
+        - lambdas: (list) + IoU loss, weight for each loss
+        """
+        super(MultiHeadLoss, self).__init__()
+        # class loss criteria
+
+        self.cls_pos_weight = 1.0
+        self.obj_pos_weight = 1.0
+        self.BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(
+            [self.cls_pos_weight])).to(device)
+        # object loss criteria
+        self.BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(
+            [self.obj_pos_weight])).to(device)
+        # lambdas: [cls, obj, iou, la_seg, ll_seg, ll_iou]
+        self.box_gain = 0.05  # box loss gain
+        self.cls_gain = 0.5  # classification loss gain
+        self.obj_gain = 1.0 
+        self.cfg = cfg
+        if not lambdas:
+            lambdas = [1.0 for _ in range(3)]
+
+        assert all(lam >= 0.0 for lam in lambdas)
+
+        self.lambdas = lambdas
+
+    def forward(self, predictions, targets, model):
+        """
+        Inputs:
+        - head_fields: (list) output from each task head
+        - head_targets: (list) ground-truth for each task head
+        - model:
+
+        Returns:
+        - o-7: sum of all the loss
+        - head_losses: (tuple) contain all loss[loss1, loss2, ...]
+
+        """
+        cfg = self.cfg
+        device = targets[0].device
+        lcls, lbox, lobj = torch.zeros(1, device=device), torch.zeros(
+            1, device=device), torch.zeros(1, device=device)
+        tcls, tbox, indices, anchors = build_targets(
+            cfg, predictions, targets[0], model)  # targets
+        
+        # Class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
+        cp, cn = smooth_BCE(eps=0.0)
+
+        # Calculate Losses
+        nt = 0  # number of targets
+        no = len(predictions)  # number of outputs
+        balance = [4.0, 1.0, 0.4] if no == 3 else [
+            4.0, 1.0, 0.4, 0.1]  # P3-5 or P3-6
+
+        # calculate detection loss
+        # layer index, layer predictions
+        for i, pi in enumerate(predictions):
+            b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx
+            tobj = torch.zeros_like(pi[..., 0], device=device)  # target obj
+
+            n = b.shape[0]  # number of targets
+            if n:
+                nt += n  # cumulative targets
+                # prediction subset corresponding to targets
+                ps = pi[b, a, gj, gi]
+                # Regression
+                pxy = ps[:, :2].sigmoid() * 2. - 0.5
+                pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
+                pbox = torch.cat((pxy, pwh), 1).to(device)  # predicted box
+                # iou(prediction, target)
+                iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)
+                lbox += (1.0 - iou).mean()  # iou loss
+
+                # Objectness
+                tobj[b, a, gj, gi] = (
+                    1.0 - model.gr) + model.gr * iou.detach().clamp(0).type(tobj.dtype)  # iou ratio
+
+                # Classification
+                # print(model.nc)
+                if model.nc > 1:  # cls loss (only if multiple classes)
+                    t = torch.full_like(
+                        ps[:, 5:], cn, device=device)  # targets
+                    t[range(n), tcls[i]] = cp
+                    lcls += self.BCEcls(ps[:, 5:], t)  # BCE
+            lobj += self.BCEobj(pi[..., 4], tobj) * balance[i]  # obj loss
+
+
+
+        s = 3 / no  # output count scaling
+        lcls *= self.box_gain * s * self.lambdas[0]
+        lobj *= self.cls_gain * s * \
+            (1.4 if no == 4 else 1.) * self.lambdas[1]
+        lbox *=  self.obj_gain * s * self.lambdas[2]
+   
+        loss = lbox + lobj + lcls
+        loss = loss.squeeze()
+        # loss = lseg
+        # return loss * bs, torch.cat((lbox, lobj, lcls, loss)).detach()
+        # return loss, (lbox.item(), lobj.item(), lcls.item(), lseg_da.item(), lseg_ll.item(), liou_ll.item(), loss.item())
+        # return loss, (lbox.item(), lobj.item(), lcls.item(), loss.item())
+        return loss
+
+        
+
+
 
 class OhemCELoss(nn.Module):
     def __init__(self, thresh, n_min, ignore_lb=255, *args, **kwargs):

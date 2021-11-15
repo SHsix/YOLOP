@@ -7,6 +7,8 @@ import cv2
 from data.mytransforms import find_start_pos
 from lib.utils import letterbox_for_img
 
+from tqdm import tqdm
+import json
 
 def loader_func(path):
     return Image.open(path)
@@ -63,18 +65,19 @@ class LaneTestDataset(torch.utils.data.Dataset):
 
 
 class LaneClsDataset(torch.utils.data.Dataset):
-    def __init__(self, path, list_path, img_transform = None,target_transform = None,simu_transform = None, griding_num=50, load_name = False,
-                row_anchor = None,use_aux=False,segment_transform=None, num_lanes = 4):
+    def __init__(self, path, list_path, img_transform = None,target_transform = None, griding_num=50, load_name = False,
+                row_anchor = None,use_aux=False,segment_transform=None, cv_transform = None, num_lanes = 4):
         super(LaneClsDataset, self).__init__()
         self.img_transform = img_transform
         self.target_transform = target_transform
         self.segment_transform = segment_transform
-        self.simu_transform = simu_transform
+        self.cv_transform = cv_transform
         self.path = path
         self.griding_num = griding_num
         self.load_name = load_name
         self.use_aux = use_aux
         self.num_lanes = num_lanes
+        self.inputsize = [640, 640] 
 
         with open(list_path, 'r') as f:
             self.list = f.readlines()
@@ -96,12 +99,53 @@ class LaneClsDataset(torch.utils.data.Dataset):
         img_path = os.path.join(self.path, img_name)
         img = loader_func(img_path)
 
+        ob_label_path = os.path.join(self.path, 'object')
+        ob_label_path = os.path.join(ob_label_path, img_name)[:-3] + 'json'
+        det_label = self._get_ob_label(ob_label_path)
 
-        if self.simu_transform is not None:
-            img, label = self.simu_transform(img, label)
         lane_pts = self._get_index(label)
         # get the coordinates of lanes at row anchors
 
+  
+        np_img = cv2.imread(img_path,cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+        cv_img = cv2.cvtColor(np_img, cv2.COLOR_BGR2RGB)
+
+        resized_shape = self.inputsize
+        if isinstance(resized_shape, list):
+            resized_shape = max(resized_shape)
+        h0, w0 = cv_img.shape[:2]  # orig hw
+        r = resized_shape / max(h0, w0)  # resize image to img_size
+        if r != 1:  # always resize down, only resize up if training with augmentation
+            interp = cv2.INTER_AREA if r < 1 else cv2.INTER_LINEAR
+            cv_img = cv2.resize(cv_img, (int(w0 * r), int(h0 * r)), interpolation=interp)
+            # seg_label = cv2.resize(seg_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
+            # lane_label = cv2.resize(lane_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
+        h, w = cv_img.shape[:2]
+        
+        cv_img, ratio, pad = letterbox_for_img(cv_img, resized_shape, auto=True, scaleup=True)
+        shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
+        # ratio = (w / w0, h / h0)
+        # print(resized_shape)
+        
+        labels=[]
+        
+        if det_label.size > 0:
+            # Normalized xywh to pixel xyxy format
+            labels = det_label.copy()
+            labels[:, 1] = ratio[0] * w * (det_label[:, 1] - det_label[:, 3] / 2) + pad[0]  # pad width
+            labels[:, 2] = ratio[1] * h * (det_label[:, 2] - det_label[:, 4] / 2) + pad[1]  # pad height
+            labels[:, 3] = ratio[0] * w * (det_label[:, 1] + det_label[:, 3] / 2) + pad[0]
+            labels[:, 4] = ratio[1] * h * (det_label[:, 2] + det_label[:, 4] / 2) + pad[1]
+
+        labels_out = torch.zeros((len(labels), 6))
+        if len(labels):
+            labels_out[:, 1:] = torch.from_numpy(labels)
+        # Convert
+        # img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+        # img = img.transpose(2, 0, 1)
+        cv_img = np.ascontiguousarray(cv_img)
+        if self.cv_transform:
+            cv_img = self.cv_transform(cv_img)
 
 
         w, h = img.size
@@ -111,17 +155,46 @@ class LaneClsDataset(torch.utils.data.Dataset):
             assert self.segment_transform is not None
             seg_label = self.segment_transform(label)
 
-        if self.img_transform is not None:
-            img = self.img_transform(img)
+        # if self.img_transform is not None:
+        #     img = self.img_transform(img)
+
 
         if self.use_aux:
-            return img, cls_label, seg_label
+            return cv_img, cls_label, seg_label, labels_out, shapes
         if self.load_name:
-            return img, cls_label, img_name
-        return img, cls_label
+            return cv_img, cls_label, img_name
+        return cv_img, cls_label, labels_out, shapes
+
+
+        # if self.use_aux:
+        #     return img, cls_label, seg_label, cv_img, labels_out, shapes
+        # if self.load_name:
+        #     return img, cls_label, img_name
+        # return img, cls_label, cv_img, labels_out, shapes
+
+
 
     def __len__(self):
         return len(self.list)
+
+    def _get_ob_label(self, ob_label_path):
+        with open(ob_label_path, 'r') as f:
+            label = json.load(f)
+            
+        data = label['objects']
+        gt = np.zeros((len(data), 5))
+
+        for idx, obj in enumerate(data):
+            category = obj['relative_coordinates']
+            x = float(category['center_x'])
+            y = float(category['center_y'])
+            w = float(category['width'])
+            h = float(category['height'])
+            gt[idx][0] = 0
+            gt[idx][1:] = x, y, w, h
+            
+
+        return gt
 
     def _grid_pts(self, pts, num_cols, w):
         # pts : numlane,n,2
