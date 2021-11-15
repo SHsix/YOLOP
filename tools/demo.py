@@ -62,8 +62,18 @@ def detect(cfg,opt):
     model_dict.update(checkpoint_dict)
     # model_dict.update(checkpoint)
     
-    model.load_state_dict(model_dict)
-    model = model.to(device)
+
+    # normalize = transforms.Normalize(
+    #         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    #     )
+
+    # transform=transforms.Compose([
+    #             transforms.ToTensor(),
+    #             normalize,
+    #         ])
+
+    # model.load_state_dict(model_dict)
+    # model = model.to(device)
     # if half:
     #     model.half()  # to FP16
 
@@ -78,9 +88,9 @@ def detect(cfg,opt):
 
 
 
-    # # Get names and colors
-    names = model.module.names if hasattr(model, 'module') else model.names
-    colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
+    # # # Get names and colors
+    # names = model.module.names if hasattr(model, 'module') else model.names
+    # colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
 
     # # Run inference
@@ -91,13 +101,11 @@ def detect(cfg,opt):
     # _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
     # model.eval()
 
-    inf_time = AverageMeter()
-    nms_time = AverageMeter()
+    # inf_time = AverageMeter()
+    # nms_time = AverageMeter()
     
     # for i, (path, img, img_det, vid_cap,shapes) in tqdm(enumerate(dataset),total = len(dataset)):
-    #     print(type(img))
     #     img = transform(img).to(device)
-    #     print(type(img))
     #     img = img.half() if half else img.float()  # uint8 to fp16/32
     #     if img.ndimension() == 3:
     #         img = img.unsqueeze(0)
@@ -119,16 +127,18 @@ def detect(cfg,opt):
     #     det=det_pred[0]
 
     #     save_path = str(opt.save_dir +'/'+ Path(path).name) if dataset.mode != 'stream' else str(opt.save_dir + '/' + "web.mp4")
+    #     print(img_det.shape)
+    #     print(type(img_det))
 
-    #     _, _, height, width = img.shape
-    #     h,w,_=img_det.shape
-    #     pad_w, pad_h = shapes[1][1]
-    #     pad_w = int(pad_w)
-    #     pad_h = int(pad_h)
-    #     ratio = shapes[1][0][1]
+    #     print('img', img.shape)
+    #     print(len(det))
 
+    #     # img -> torch[1, 3, 384, 640]
+    #     # img_det -> original img size
     #     if len(det):
+    #         print(det[:, :4])
     #         det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
+    #         print(det[:, :4])
     #         for *xyxy,conf,cls in reversed(det):
     #             label_det_pred = f'{names[int(cls)]} {conf:.2f}'
     #             plot_one_box(xyxy, img_det , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
@@ -155,7 +165,19 @@ def detect(cfg,opt):
     # print('Results saved to %s' % Path(opt.save_dir))
     # print('Done. (%.3fs)' % (time.time() - t0))
     # print('inf : (%.4fs/frame)   nms : (%.4fs/frame)' % (inf_time.avg,nms_time.avg))
+
+    inf_time = AverageMeter()
+    nms_time = AverageMeter()
+    model.load_state_dict(model_dict)
+    model = model.to(device)
+    
     model.eval()
+
+
+    # # Get names and colors
+    names = model.module.names if hasattr(model, 'module') else model.names
+    colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
+
     normalize = transforms.Normalize(
             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
         )
@@ -240,25 +262,19 @@ def detect(cfg,opt):
         # self.sources, img, img0[0], None, shapes
         # for i, (path, img, img_det, vid_cap,shapes) 
 
-            # save_path = str(opt.save_dir +'/'+ Path(path).name) if dataset.mode != 'stream' else str(opt.save_dir + '/' + "web.mp4")
-            
-            
-            _, _, height, width = imgs.shape
-            h,w,_=img_det.shape
-            pad_w, pad_h = shapes[1][1]
-            pad_w = int(pad_w)
-            pad_h = int(pad_h)
-            ratio = shapes[1][0][1]
+            # save_path = str(opt.save_dir +'/'+ Path('').name) if dataset.mode != 'stream' else str(opt.save_dir + '/' + "web.mp4")
 
             vis = cv2.imread(os.path.join(cfg.LANE.DATA_ROOT,names[0]))
             if len(det):
-                det[:,:4] = scale_coords(ob_img.shape[2:],det[:,:4],img_det.shape).round()
+                print(det[:, :4])
+                det[:,:4] = scale_coords(ob_img.shape[3:], det[:,:4], vis.shape).round()
+                print(det[:, :4])
                 for *xyxy,conf,cls in reversed(det):
                     label_det_pred = f'{names[int(cls)]} {conf:.2f}'
                     plot_one_box(xyxy, vis , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
             
-            # if dataset.mode == 'images':
-            #     cv2.imwrite(save_path,img_det)
+        
+            cv2.imwrite('/home/YOLOP/inference/culane/a.jpg', vis)
 
             # elif dataset.mode == 'video':
             #     if vid_path != save_path:  # new video

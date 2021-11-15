@@ -214,7 +214,7 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     else:
         gain = ratio_pad[0][0]
         pad = ratio_pad[1]
-
+    print(img1_shape, img0_shape)
     coords[:, [0, 2]] -= pad[0]  # x padding
     coords[:, [1, 3]] -= pad[1]  # y padding
     coords[:, :4] /= gain
