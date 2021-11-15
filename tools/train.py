@@ -118,6 +118,7 @@ def main():
         dist.init_process_group(backend='nccl', init_method='env://')  # distributed backend
     
     print("load model to device")
+    print(device)
     model = get_net(cfg).to(device)
 
     # print("load finished")
@@ -249,38 +250,38 @@ def main():
     
     for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
         
-        logger.info('freeze lane detection head...')
-        for k, v in model.named_parameters():
-            v.requires_grad = True  # train all layers
-            if k.split(".")[1] in lane_Head_para_idx:
-                # print('freezing %s' % k)
-                v.requires_grad = False
+        # logger.info('freeze lane detection head...')
+        # for k, v in model.named_parameters():
+        #     v.requires_grad = True  # train all layers
+        #     if k.split(".")[1] in lane_Head_para_idx:
+        #         # print('freezing %s' % k)
+        #         v.requires_grad = False
                 
-        if rank != -1:
-            ob_train_loader.sampler.set_epoch(epoch)
-        # train for one epoch
-        obj_train(cfg, ob_train_loader, model, criterion, optimizer, scaler,
-              epoch, num_batch, num_warmup, writer_dict, logger, device, rank)
+        # if rank != -1:
+        #     ob_train_loader.sampler.set_epoch(epoch)
+        # # train for one epoch
+        # obj_train(cfg, ob_train_loader, model, criterion, optimizer, scaler,
+        #       epoch, num_batch, num_warmup, writer_dict, logger, device, rank)
         
-        lr_scheduler.step()
+        # lr_scheduler.step()
 
-        # evaluate on validation set
-        if (epoch % cfg.TRAIN.VAL_FREQ == 0 or epoch == cfg.TRAIN.END_EPOCH) and rank in [-1, 0]:
-            # print('validate')
-            detect_results, total_loss,maps, times = validate(
-                epoch,cfg, ob_valid_loader, ob_valid_dataset, model, criterion,
-                final_output_dir, tb_log_dir, writer_dict,
-                logger, device, rank
-            )
-            fi = fitness(np.array(detect_results).reshape(1, -1))  #目标检测评价指标
+        # # evaluate on validation set
+        # if (epoch % cfg.TRAIN.VAL_FREQ == 0 or epoch == cfg.TRAIN.END_EPOCH) and rank in [-1, 0]:
+        #     # print('validate')
+        #     detect_results, total_loss,maps, times = validate(
+        #         epoch,cfg, ob_valid_loader, ob_valid_dataset, model, criterion,
+        #         final_output_dir, tb_log_dir, writer_dict,
+        #         logger, device, rank
+        #     )
+        #     fi = fitness(np.array(detect_results).reshape(1, -1))  #目标检测评价指标
 
-            msg = 'Epoch: [{0}]    Loss({loss:.3f})\n' \
-                    'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
-                    'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
-                    epoch,  loss=total_loss, 
-                    p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
-                    t_inf=times[0], t_nms=times[1])
-            logger.info(msg)
+        #     msg = 'Epoch: [{0}]    Loss({loss:.3f})\n' \
+        #             'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
+        #             'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
+        #             epoch,  loss=total_loss, 
+        #             p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
+        #             t_inf=times[0], t_nms=times[1])
+        #     logger.info(msg)
 
 
         logger.info('freeze object detection head...')

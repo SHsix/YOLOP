@@ -49,6 +49,7 @@ def obj_train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num
     model.train()
     start = time.time()
     for i, (input, target, paths, shapes) in enumerate(train_loader):
+        # input size [64, 3, 384, 640]
         intermediate = time.time()
         # print('tims:{}'.format(intermediate-start))
         num_iter = i + num_batch * (epoch - 1)
@@ -68,6 +69,7 @@ def obj_train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num
                         num_iter, xi, [cfg.TRAIN.WARMUP_MOMENTUM, cfg.TRAIN.MOMENTUM])
 
         data_time.update(time.time() - start)
+        
         if not cfg.DEBUG:
             input = input.to(device, non_blocking=True)
             assign_target = []
@@ -504,6 +506,7 @@ def inference(net, data_label, use_aux):
     if use_aux:
         img, cls_label, seg_label = data_label
         img, cls_label, seg_label = img.cuda(), cls_label.long().cuda(), seg_label.long().cuda()
+        #img size [128, 3, 256, 256]
         cls_out, seg_out = net(img)[1]
         return {'cls_out': cls_out, 'cls_label': cls_label, 'seg_out':seg_out, 'seg_label': seg_label}
     else:
