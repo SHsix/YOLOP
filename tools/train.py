@@ -24,7 +24,7 @@ from tensorboardX import SummaryWriter
 from lib.config import cfg
 from lib.config import update_config
 from lib.core.loss import get_loss
-from lib.core.function import obj_train, lane_train
+from lib.core.function import train
 from lib.core.function import validate
 from lib.core.general import fitness
 from lib.models import get_net
@@ -220,7 +220,8 @@ def main():
     
     distributed  = world_size > 1
     print("begin to load lane data")              
-    lane_train_loader, cls_num_per_lane = get_train_loader(cfg.LANE.BATCH_SIZE, cfg.LANE.DATA_ROOT, cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
+    lane_train_loader, cls_num_per_lane = get_train_loader(cfg, cfg.LANE.BATCH_SIZE, \
+        cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
     
     lane_optimizer = get_optimizer(cfg, model)
     lane_metric_dict = get_metric_dict(cfg)
@@ -238,7 +239,7 @@ def main():
         #         v.requires_grad = False
 
         
-        lane_train(model, lane_train_loader, lane_loss_dict, lane_optimizer, lr_scheduler,logger, epoch, lane_metric_dict, cfg.LANE.AUX_SEG, device)
+        train(model, lane_train_loader, lane_loss_dict, lane_optimizer, lr_scheduler,logger, epoch, lane_metric_dict, cfg.LANE.AUX_SEG, device)
             # if perf_indicator >= best_perf:
             #     best_perf = perf_indicator
             #     best_model = True

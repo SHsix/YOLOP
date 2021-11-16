@@ -93,11 +93,11 @@ class LaneClsDataset(torch.utils.data.Dataset):
             img_name = img_name[1:]
             label_name = label_name[1:]
 
-        label_path = os.path.join(self.path, label_name)
-        label = loader_func(label_path)
-
         img_path = os.path.join(self.path, img_name)
+        label_path = os.path.join(self.path, label_name)
+
         img = loader_func(img_path)
+        label = loader_func(label_path)
 
         ob_label_path = os.path.join(self.path, 'object')
         ob_label_path = os.path.join(ob_label_path, img_name)[:-3] + 'json'

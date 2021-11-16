@@ -552,13 +552,13 @@ def calc_loss(loss_dict, results, logger, global_step):
     return loss
 
 
-def lane_train(net, data_loader, loss_dict, optimizer, scheduler,logger, epoch, metric_dict, use_aux, device):
+def train(net, data_loader, loss_dict, optimizer, scheduler,logger, epoch, metric_dict, use_aux, device):
     net.train()
     progress_bar = dist_tqdm(data_loader)
     t_data_0 = time.time()
-    for b_idx, (img, cls_label, seg_label, target, shapes) in enumerate(progress_bar):
+    for b_idx, (img, labels) in enumerate(progress_bar):
     # for b_idx, data_label in enumerate(progress_bar):
-
+        target, cls_label, seg_label = labels
         img = img.to(device, non_blocking=True)
         assign_target = []
         for tgt in target:

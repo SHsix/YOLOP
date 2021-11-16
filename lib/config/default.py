@@ -48,10 +48,10 @@ _C.LOSS.OBJ_GAIN = 1.0  # object loss gain
 # lane detection params
 _C.LANE = CN(new_allowed=True)
 _C.LANE.DATASET = 'CULane'
-_C.LANE.DATA_ROOT = '/home/YOLOP/datasets/CULane'
+
 _C.LANE.GRIDING_NUM = 96
 _C.LANE.AUX_SEG = True
-_C.LANE.BATCH_SIZE = 1
+_C.LANE.BATCH_SIZE = 32
 _C.LANE.END_EPOCH = 40
 _C.LANE.NUM_LANES = 4
 _C.LANE.TEST_DIR = './tmp'
@@ -71,17 +71,18 @@ _C.LANE.SCHEDULER = 'multi'
 # DATASET related params
 _C.DATASET = CN(new_allowed=True)
 # the path of images folder
-_C.DATASET.DATAROOT = '/home/YOLOP/datasets/bdd100k_YOLOP/images'
+_C.DATASET.DATASET = 'CULANE'
+_C.DATASET.DATAROOT = '/home/YOLOP/datasets/CULane'
+_C.DATASET.LABELROOT = '/home/YOLOP/datasets/CULane/object'
+_C.DATASET.TRAIN_SET = 'list/train_gt.txt'
+
 # the path of det_annotations folder
-_C.DATASET.LABELROOT = '/home/YOLOP/datasets/bdd100k_YOLOP/det_annotations'
 # _C.DATASET.MASKROOT = '/home/zwt/bdd/bdd_seg_gt'                # the path of da_seg_annotations folder
 # _C.DATASET.LANEROOT = '/home/zwt/bdd/bdd_lane_gt'               # the path of ll_seg_annotations folder
-_C.DATASET.DATASET = 'BddDataset'
-_C.DATASET.TRAIN_SET = 'train'
 _C.DATASET.TEST_SET = 'val'
 _C.DATASET.DATA_FORMAT = 'jpg'
 _C.DATASET.SELECT_DATA = False
-_C.DATASET.ORG_IMG_SIZE = [720, 1280]
+_C.DATASET.ORG_IMG_SIZE = [590, 1640]
 
 # training data augmentation
 _C.DATASET.FLIP = True

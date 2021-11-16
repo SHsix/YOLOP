@@ -10,7 +10,7 @@ def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#iss
     return 1.0 - 0.5 * eps, 0.5 * eps
 
 class MultiHeadLoss(nn.Module):
-    def __init__(self,cfg, device, lambdas=None, *args, **kwargs):
+    def __init__(self, cfg, device, lambdas=None, *args, **kwargs):
         """
         Inputs:
         - losses: (list)[nn.Module, nn.Module, ...]
