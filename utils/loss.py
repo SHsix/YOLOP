@@ -52,11 +52,11 @@ class MultiHeadLoss(nn.Module):
 
         """
         cfg = self.cfg
-        device = targets[0].device
+        device = targets.device
         lcls, lbox, lobj = torch.zeros(1, device=device), torch.zeros(
             1, device=device), torch.zeros(1, device=device)
         tcls, tbox, indices, anchors = build_targets(
-            cfg, predictions, targets[0], model)  # targets
+            cfg, predictions, targets, model)  # targets
         
         # Class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
         cp, cn = smooth_BCE(eps=0.0)

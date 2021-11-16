@@ -502,16 +502,7 @@ import time
 
 def inference(net, img, cls_label, seg_label, target, use_aux):
     if use_aux:
-        # img, cls_label, seg_label, target, shapes = data_label
-
-        # img = img.to(device, non_blocking=True)
-        # assign_target = []
-        # for tgt in target:
-        #     assign_target.append(tgt.to(device))
-        # target = assign_target
-
-        # img, cls_label, seg_label = img.cuda(), cls_label.long().cuda(), seg_label.long().cuda()
-        
+        target, cls_label, seg_label = target.cuda(), cls_label.long().cuda(), seg_label.long().cuda()
         det_out, lane_out = net(img)
         cls_out, seg_out = lane_out
 
@@ -560,11 +551,12 @@ def train(net, data_loader, loss_dict, optimizer, scheduler,logger, epoch, metri
     # for b_idx, data_label in enumerate(progress_bar):
         target, cls_label, seg_label = labels
         img = img.to(device, non_blocking=True)
-        assign_target = []
-        for tgt in target:
-            assign_target.append(tgt.to(device))
-        target = assign_target
-        cls_label, seg_label = cls_label.long().cuda(), seg_label.long().cuda()
+        # assign_target = []
+        # for tgt in target:
+        #     assign_target.append(tgt.to(device))
+        # target = assign_target
+
+
 
 
         t_data_1 = time.time()

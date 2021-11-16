@@ -25,12 +25,6 @@ def get_train_loader(cfg, batch_size, griding_num, dataset, use_aux, distributed
 
 
     if dataset == 'CULane':
-        # train_dataset = LaneClsDataset(data_root,
-        #                                    os.path.join(data_root, 'list/train_gt.txt'),
-        #                                    img_transform=img_transform, target_transform=target_transform,
-        #                                    segment_transform=segment_transform, cv_transform = cv_transform,
-        #                                    row_anchor = culane_row_anchor,
-        #                                    griding_num=griding_num, use_aux=use_aux, num_lanes = num_lanes)
         train_dataset = Culane(cfg = cfg, is_train= True, inputsize=cfg.MODEL.IMAGE_SIZE, \
             transform = [cv_transform, segment_transform], row_anchor = culane_row_anchor,
                         griding_num=griding_num, use_aux=use_aux, num_lanes = num_lanes
@@ -39,17 +33,7 @@ def get_train_loader(cfg, batch_size, griding_num, dataset, use_aux, distributed
 
     else:
         raise NotImplementedError
-    # train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if rank != -1 else None
-    # train_loader = DataLoaderX(
-    #     train_dataset,
-    #     batch_size=cfg.TRAIN.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
-    #     shuffle=(cfg.TRAIN.SHUFFLE),
-    #     num_workers=cfg.WORKERS,
-    #     sampler=train_sampler,
-    #     pin_memory=cfg.PIN_MEMORY,
-    #     collate_fn=dataset.AutoDriveDataset.collate_fn
-    # )
-    # num_batch = len(train_loader)
+    
     if distributed:
         sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
     else:
