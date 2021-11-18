@@ -5,7 +5,7 @@ import numpy as np
 import torchvision.transforms as transforms
 import data.mytransforms as mytransforms
 from data.constant import culane_row_anchor
-from data.dataset import LaneClsDataset, LaneTestDataset
+from data.dataset import LaneTestDataset
 from lib.utils import DataLoaderX, torch_distributed_zero_first
 import data as data
 from .culane import Culane
@@ -44,18 +44,18 @@ def get_train_loader(cfg, batch_size, griding_num, dataset, use_aux, distributed
 
     return train_loader, cls_num_per_lane
 
-def get_test_loader(batch_size, data_root,dataset, distributed):
-    img_transforms = transforms.Compose([
-        transforms.Resize((256, 256)),
+def get_test_loader(cfg, batch_size, data_root,dataset, distributed):
+    normalize = transforms.Normalize(
+        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    )
+    cv_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        normalize,    
     ])
     if dataset == 'CULane':
-        test_dataset = LaneTestDataset(data_root,os.path.join(data_root, 'list/test.txt'),img_transform = img_transforms)
+        test_dataset = LaneTestDataset(data_root, os.path.join(data_root, 'list/test.txt'),img_transform = cv_transform)
         cls_num_per_lane = 18
-    elif dataset == 'Tusimple':
-        test_dataset = LaneTestDataset(data_root,os.path.join(data_root, 'test.txt'), img_transform = img_transforms)
-        cls_num_per_lane = 56
+ 
 
     if distributed:
         sampler = SeqDistributedSampler(test_dataset, shuffle = False)

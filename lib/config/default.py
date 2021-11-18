@@ -75,11 +75,11 @@ _C.DATASET.DATASET = 'CULANE'
 _C.DATASET.DATAROOT = '/home/YOLOP/datasets/CULane'
 _C.DATASET.LABELROOT = '/home/YOLOP/datasets/CULane/object'
 _C.DATASET.TRAIN_SET = 'list/train_gt.txt'
+_C.DATASET.TEST_SET = 'list/test.txt'
 
 # the path of det_annotations folder
 # _C.DATASET.MASKROOT = '/home/zwt/bdd/bdd_seg_gt'                # the path of da_seg_annotations folder
 # _C.DATASET.LANEROOT = '/home/zwt/bdd/bdd_lane_gt'               # the path of ll_seg_annotations folder
-_C.DATASET.TEST_SET = 'val'
 _C.DATASET.DATA_FORMAT = 'jpg'
 _C.DATASET.SELECT_DATA = False
 _C.DATASET.ORG_IMG_SIZE = [590, 1640]

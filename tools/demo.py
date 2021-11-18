@@ -22,7 +22,7 @@ from lib.config import cfg
 from lib.config import update_config
 from lib.utils.utils import create_logger, select_device, time_synchronized
 from lib.models import get_net
-from lib.dataset import LoadImages, LoadStreams
+# from lib.dataset import LoadImages, LoadStreams
 from lib.core.general import non_max_suppression, scale_coords
 from lib.utils import plot_one_box,show_seg_result
 from lib.core.function import AverageMeter
@@ -179,25 +179,19 @@ def detect(cfg,opt):
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
     normalize = transforms.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        )
-
-    ob_transform=transforms.Compose([
-                transforms.ToTensor(),
-                normalize,
-            ])
-    
-    cls_num_per_lane = 18
-    img_transforms = transforms.Compose([
-        transforms.Resize((256, 256)),
+        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    )
+    cv_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        normalize,    
     ])
+
     if cfg.LANE.DATASET == 'CULane':
         splits = ['test0_normal.txt', 'test1_crowd.txt', 'test2_hlight.txt', 'test3_shadow.txt', 'test4_noline.txt', 'test5_arrow.txt', 'test6_curve.txt', 'test7_cross.txt', 'test8_night.txt']
-        datasets = [LaneTestDataset(cfg.LANE.DATA_ROOT,os.path.join(cfg.LANE.DATA_ROOT, 'list/test_split/'+split),img_transform = [img_transforms, ob_transform]) for split in splits]
+        datasets = [LaneTestDataset(cfg.DATASET.DATAROOT,os.path.join(cfg.DATASET.DATAROOT, 'list/test_split/'+split),img_transform = cv_transform) for split in splits]
         img_w, img_h = 1640, 590
         row_anchor = culane_row_anchor
+        cls_num_per_lane = len(row_anchor)
     else:
         raise NotImplementedError
 
@@ -207,24 +201,22 @@ def detect(cfg,opt):
         print(split[:-3]+'avi')
         vout = cv2.VideoWriter(split[:-3]+'avi', fourcc , 30.0, (img_w, img_h))
         for i, data in enumerate(tqdm(loader)):
-            imgs, names, ob_img, img_det, shapes = data
+            imgs, names, real_imgs, shapes = data
             # print('test', type(ob_img))
             # ob_img = ob_transform(ob_img).to(device)
             # print(type(ob_img))
-
-
 
             imgs = imgs.cuda()
             t1 = time_synchronized()
             with torch.no_grad():
                 det_out, lane_out = model(imgs)
-                lane_out = lane_out[0]
+                cls_out, _ = lane_out
             t2 = time_synchronized()
             col_sample = np.linspace(0, 256 - 1,  cfg.LANE.GRIDING_NUM)
             col_sample_w = col_sample[1] - col_sample[0]
 
 
-            out_j = lane_out[0].data.cpu().numpy()
+            out_j = cls_out[0].data.cpu().numpy()
             out_j = out_j[:, ::-1, :]
             prob = scipy.special.softmax(out_j[:-1, :, :], axis=0)
             idx = np.arange( cfg.LANE.GRIDING_NUM) + 1
@@ -264,11 +256,10 @@ def detect(cfg,opt):
 
             # save_path = str(opt.save_dir +'/'+ Path('').name) if dataset.mode != 'stream' else str(opt.save_dir + '/' + "web.mp4")
 
-            vis = cv2.imread(os.path.join(cfg.LANE.DATA_ROOT,names[0]))
+
+            vis = cv2.imread(os.path.join(cfg.DATASET.DATAROOT, names[0]))
             if len(det):
-                print(det[:, :4])
-                det[:,:4] = scale_coords(ob_img.shape[3:], det[:,:4], vis.shape).round()
-                print(det[:, :4])
+                det[:,:4] = scale_coords(imgs.shape[2:], det[:,:4], vis.shape).round()
                 for *xyxy,conf,cls in reversed(det):
                     label_det_pred = f'{names[int(cls)]} {conf:.2f}'
                     plot_one_box(xyxy, vis , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
@@ -307,7 +298,8 @@ def detect(cfg,opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-09-05-59/epoch-40.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-17-02-35/epoch-40.pth', help='model.pth path(s)')
+    # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-16-05-39/epoch-8.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-39.pth', help='model.pth path(s)')
     parser.add_argument('--source', type=str, default='inference/videos', help='source')  # file/folder   ex:inference/images
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
