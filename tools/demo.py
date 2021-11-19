@@ -298,7 +298,7 @@ def detect(cfg,opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-17-02-35/epoch-40.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-18-09-08/epoch-40.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-16-05-39/epoch-8.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-39.pth', help='model.pth path(s)')
     parser.add_argument('--source', type=str, default='inference/videos', help='source')  # file/folder   ex:inference/images

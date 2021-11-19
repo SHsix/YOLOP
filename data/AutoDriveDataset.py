@@ -124,6 +124,8 @@ class AutoDriveDataset(Dataset):
         lane_label = loader_func(data["lane_label"])
         lane_pts = self._get_index(lane_label)
         w, h = lane_label.size
+
+        
         cls_label = self._grid_pts(lane_pts, self.griding_num, w)
         cls_label = self.Tensor(cls_label)
         cls_label = cls_label.squeeze()
