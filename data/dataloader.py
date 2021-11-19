@@ -12,7 +12,7 @@ from .culane import Culane
 
 def get_train_loader(cfg, batch_size, griding_num, dataset, use_aux, distributed, num_lanes):
     segment_transform = transforms.Compose([
-        mytransforms.FreeScaleMask((256, 640)),
+        mytransforms.FreeScaleMask((32, 80)),
         mytransforms.MaskToTensor(),
     ])
     normalize = transforms.Normalize(

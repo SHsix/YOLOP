@@ -21,7 +21,7 @@ sys.path.append(os.getcwd())
 
 # The lane line and the driving area segment branches without share information with each other and without link
 YOLOP = [
-    [24, 33],  # Det_out_idx, Da_Segout_idx, LL_Segout_idx
+    [24, 28],  # Det_out_idx, Da_Segout_idx, LL_Segout_idx
     [-1, Focus, [3, 32, 3]],  # 0
     [-1, Conv, [32, 64, 3, 2]],  # 1
     [-1, BottleneckCSP, [64, 64, 1]],  # 2
@@ -51,14 +51,14 @@ YOLOP = [
                                  [19, 50, 38, 81, 68, 157]], [128, 256, 512]]],  # Detection head 24
 
     [16, Conv, [256, 128, 3, 1]],  # 25
-    [-1, Upsample, [None, 2, 'nearest']],  # 26
-    [-1, BottleneckCSP, [128, 64, 1, False]],  # 27
-    [-1, Conv, [64, 32, 3, 1]],  # 28
-    [-1, Upsample, [None, 2, 'nearest']],  # 29
-    [-1, Conv, [32, 16, 3, 1]],  # 30
-    [-1, BottleneckCSP, [16, 8, 1, False]],  # 31
-    [-1, Upsample, [None, 2, 'nearest']],  # 32
-    [-1, Conv, [8, 5, 3, 1]],  # 33 Driving area segmentation head
+    [-1, Conv, [128, 128, 3, 1]],  # 27
+    [-1, Conv, [128, 128, 3, 1]],  # 26
+    [-1, Conv, [128, 5, 3, 1]],  # 28
+    # [-1, Upsample, [None, 2, 'nearest']],  # 29
+    # [-1, Conv, [32, 16, 3, 1]],  # 30
+    # [-1, BottleneckCSP, [16, 8, 1, False]],  # 31
+    # [-1, Upsample, [None, 2, 'nearest']],  # 32
+    # [-1, Conv, [8, 5, 3, 1]],  # 33 Driving area segmentation head
 
     [16, Detect_lane, [97, 18, 4]]  # 34
 ]
