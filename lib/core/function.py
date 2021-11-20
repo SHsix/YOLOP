@@ -491,7 +491,7 @@ import numpy as np
 from data.dataloader import get_train_loader
 
 from utils.dist_utils import dist_print, dist_tqdm, is_main_process, DistSummaryWriter
-from utils.factory import get_metric_dict, get_loss_dict, get_optimizer, get_scheduler
+
 from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU, update_metrics, reset_metrics
 
 from utils.common import merge_config, save_model, cp_projects

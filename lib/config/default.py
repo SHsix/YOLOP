@@ -4,7 +4,8 @@ from yacs.config import CfgNode as CN
 
 _C = CN()
 
-_C.LOG_DIR = 'runs/'
+_C.LOG_DIR = './log'
+_C.LOG_NOTE = ''
 _C.GPUS = (0, 1)
 _C.WORKERS = 8
 _C.PIN_MEMORY = False
@@ -51,7 +52,6 @@ _C.LANE.DATASET = 'CULane'
 
 _C.LANE.GRIDING_NUM = 96
 _C.LANE.AUX_SEG = True
-_C.LANE.BATCH_SIZE = 64
 _C.LANE.END_EPOCH = 40
 _C.LANE.NUM_LANES = 4
 _C.LANE.TEST_DIR = './tmp'
@@ -61,7 +61,6 @@ _C.LANE.SIM_LOSS = 0.0
 _C.LANE.SHP_LOSS = 0.0
 
 # Lane optimizer & Scheduler
-_C.LANE.SCHEDULER = 'multi'
 
 # _C.LOSS.DA_SEG_GAIN = 0.2  # driving area segmentation loss gain
 # _C.LOSS.LL_SEG_GAIN = 0.2  # lane line segmentation loss gain
@@ -99,24 +98,31 @@ _C.DATASET.HSV_V = 0.4  # image HSV-Value augmentation (fraction)
 
 # train
 _C.TRAIN = CN(new_allowed=True)
-_C.TRAIN.LR0 = 0.001  # initial learning rate (SGD=1E-2, Adam=1E-3)
+_C.TRAIN.LR0 = 0.01  # initial learning rate (SGD=1E-2, Adam=1E-3)
 _C.TRAIN.LRF = 0.2  # final OneCycleLR learning rate (lr0 * lrf)
-_C.TRAIN.WARMUP_EPOCHS = 3.0
-_C.TRAIN.WARMUP_BIASE_LR = 0.1
-_C.TRAIN.WARMUP_MOMENTUM = 0.8
+_C.TRAIN.WD = 1e-4
+_C.TRAIN.STEP = [25, 38] 
+_C.TRAIN.WARMUP = 'linear'
+_C.TRAIN.WARMUP_ITERS = 695
 
-_C.TRAIN.OPTIMIZER = 'adam'
+
+_C.TRAIN.OPTIMIZER = 'sgd'
+_C.TRAIN.SCHEDULER = 'multi'
 _C.TRAIN.MOMENTUM = 0.937
-_C.TRAIN.WD = 0.0005
 _C.TRAIN.NESTEROV = True
 _C.TRAIN.GAMMA1 = 0.99
 _C.TRAIN.GAMMA2 = 0.0
+_C.TRAIN.GAMMA3 = 0.1
 
 _C.TRAIN.BEGIN_EPOCH = 0
-_C.TRAIN.END_EPOCH = 40
+_C.TRAIN.END_EPOCH = 100
 
 _C.TRAIN.VAL_FREQ = 1
-_C.TRAIN.BATCH_SIZE_PER_GPU = 32
+_C.TRAIN.BATCH_SIZE = 80
+
+_C.TRAIN.FINETUNE = None
+_C.TRAIN.RESUME = None
+
 _C.TRAIN.SHUFFLE = True
 
 _C.TRAIN.IOU_THRESHOLD = 0.2

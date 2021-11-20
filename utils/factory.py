@@ -7,20 +7,22 @@ import torch
 
 def get_optimizer(net,cfg):
     training_params = filter(lambda p: p.requires_grad, net.parameters())
-    if cfg.LANE.OPTIMIZER == 'Adam':
-        optimizer = torch.optim.Adam(training_params, lr=cfg.learning_rate, weight_decay=cfg.weight_decay)
-    elif cfg.LANE.OPTIMIZER == 'SGD':
-        optimizer = torch.optim.SGD(training_params, lr=cfg.learning_rate, momentum=cfg.momentum,
-                                    weight_decay=cfg.weight_decay)
+    if cfg.TRAIN.OPTIMIZER == 'Adam':
+        optimizer = torch.optim.Adam(training_params, lr=cfg.TRAIN.BATCH_SIZE, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
+    elif cfg.TRAIN.OPTIMIZER == 'SGD':
+        optimizer = torch.optim.SGD(training_params, lr=cfg.TRAIN.BATCH_SIZE, momentum=cfg.TRAIN.MOMENTUM,
+                                    weight_decay=cfg.TRAIN.WEIGHT_DECAY)
     else:
         raise NotImplementedError
     return optimizer
 
 def get_scheduler(optimizer, cfg, iters_per_epoch):
-    if cfg.LANE.SCHEDULER == 'multi':
-        scheduler = MultiStepLR(optimizer, cfg.steps, cfg.gamma, iters_per_epoch, cfg.warmup, iters_per_epoch if cfg.warmup_iters is None else cfg.warmup_iters)
-    elif cfg.LANE.SCHEDULER == 'cos':
-        scheduler = CosineAnnealingLR(optimizer, cfg.epoch * iters_per_epoch, eta_min = 0, warmup = cfg.warmup, warmup_iters = cfg.warmup_iters)
+    if cfg.TRAIN.SCHEDULER == 'multi':
+        scheduler = MultiStepLR(optimizer, cfg.TRAIN.STEP, cfg.TRAIN.GAMMA3, iters_per_epoch, \
+            cfg.TRAIN.WARMUP, iters_per_epoch if cfg.TRAIN.WARMUP is None else cfg.TRAIN.WARMUP_ITERS)
+    elif cfg.TRAIN.SCHEDULER == 'cos':
+        scheduler = CosineAnnealingLR(optimizer, cfg.TRAIN.END_EPOCH * iters_per_epoch, eta_min = 0, \
+            warmup = cfg.TRAIN.WARMUP, warmup_iters = cfg.TRAIN.WARMUP_ITERS)
     else:
         raise NotImplementedError
     return scheduler
@@ -46,7 +48,6 @@ def get_loss_dict(cfg, device):
     return loss_dict
 
 def get_metric_dict(cfg):
-
     if cfg.LANE.AUX_SEG:
         metric_dict = {
             'name': ['top1', 'top2', 'top3', 'iou'],
