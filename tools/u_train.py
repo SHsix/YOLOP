@@ -232,7 +232,9 @@ if __name__ == "__main__":
     Det_Head_para_idx = [str(i) for i in range(17, 25)]
     lane_Head_para_idx = [str(i) for i in range(25, 36)]
 
-    logger.info('Freeze Encoder and Lane detection head...')
+
+
+    print('Freeze Encoder and Lane detection head...')
     for k, v in net.named_parameters():
         v.requires_grad = True  # train all layers
         if k.split(".")[1] in Encoder_para_idx + lane_Head_para_idx:
@@ -247,7 +249,9 @@ if __name__ == "__main__":
             logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
         save_model(net, optimizer, epoch ,work_dir, distributed)
 
-    logger.info('Freeze Encoder and Object detection head...')
+
+
+    print('Freeze Encoder and Object detection head...')
     for k, v in net.named_parameters():
         v.requires_grad = True  # train all layers
         if k.split(".")[1] in Encoder_para_idx + Det_Head_para_idx:
