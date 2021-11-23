@@ -173,19 +173,19 @@ class Detect_lane(nn.Module):
     # Concatenate a list of tensors along dimension
     def __init__(self, grid, ncls, num):
         super(Detect_lane, self).__init__()
-        self.pool = torch.nn.Conv2d(256, 8, 1)
+        self.pool = torch.nn.Conv2d(512, 8, 1)
         self.cls_dim = (grid, ncls, num)
         self.total_dim = np.prod(self.cls_dim)
         
         self.cls = torch.nn.Sequential(
-            torch.nn.Linear(8 * 32 * 80, 1024),
+            torch.nn.Linear(8 * 8 * 20, 1024),
             torch.nn.ReLU(),
             torch.nn.Linear(1024, self.total_dim),
         )
         
     def forward(self, x):
         # [64, 256, 32, 32]
-        if x.shape[-1] != 80:
+        if x.shape[-1] == 4:
             return torch.zeros(1, 3, 1, 1)
         x = self.pool(x)
         # [64, 8, 32, 32]

@@ -53,13 +53,26 @@ def detect(cfg,opt):
     model = get_net(cfg)
     # checkpoint = torch.load(opt.weights, map_location= device)
     # model.load_state_dict(checkpoint['state_dict'])
-    model_dict = model.state_dict()
+
     checkpoint_file = opt.weights
     logger.info("=> loading checkpoint '{}'".format(checkpoint_file))
-    checkpoint = torch.load(checkpoint_file)
-    checkpoint_dict = checkpoint['state_dict']
-    # checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
-    model_dict.update(checkpoint_dict)
+    state_dict = torch.load(checkpoint_file, map_location = 'cpu')['model']
+    compatible_state_dict = {}
+    for k, v in state_dict.items():
+        if 'module.' in k:
+            compatible_state_dict[k[7:]] = v
+        else:
+            compatible_state_dict[k] = v
+
+    model.load_state_dict(compatible_state_dict, strict = False)
+
+
+
+    # model_dict = model.state_dict()
+    # checkpoint = torch.load(checkpoint_file)
+    # checkpoint_dict = checkpoint['state_dict']
+    # # checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
+    # model_dict.update(checkpoint_dict)
     # model_dict.update(checkpoint)
     
 
@@ -168,7 +181,6 @@ def detect(cfg,opt):
 
     inf_time = AverageMeter()
     nms_time = AverageMeter()
-    model.load_state_dict(model_dict)
     model = model.to(device)
     
     model.eval()
@@ -212,7 +224,7 @@ def detect(cfg,opt):
                 det_out, lane_out = model(imgs)
                 cls_out, _ = lane_out
             t2 = time_synchronized()
-            col_sample = np.linspace(0, 256 - 1,  cfg.LANE.GRIDING_NUM)
+            col_sample = np.linspace(0, 640 - 1,  cfg.LANE.GRIDING_NUM)
             col_sample_w = col_sample[1] - col_sample[0]
 
 
@@ -290,7 +302,7 @@ def detect(cfg,opt):
                 if np.sum(out_j[:, i] != 0) > 2:
                     for k in range(out_j.shape[0]):
                         if out_j[k, i] > 0:
-                            ppp = (int(out_j[k, i] * col_sample_w * img_w / 256) - 1, int(img_h * (row_anchor[cls_num_per_lane-1-k]/256)) - 1 )
+                            ppp = (int(out_j[k, i] * col_sample_w * img_w / 640) - 1, int(img_h * (row_anchor[cls_num_per_lane-1-k]/256)) - 1 )
                             cv2.circle(vis,ppp,5,(0,255,0),-1)
             vout.write(vis)
 
@@ -298,7 +310,7 @@ def detect(cfg,opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-18-09-08/epoch-40.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/20211123_031211_lr_1e-03_b_80/ep010.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-16-05-39/epoch-8.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-39.pth', help='model.pth path(s)')
     parser.add_argument('--source', type=str, default='inference/videos', help='source')  # file/folder   ex:inference/images

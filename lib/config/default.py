@@ -50,9 +50,8 @@ _C.LOSS.OBJ_GAIN = 1.0  # object loss gain
 _C.LANE = CN(new_allowed=True)
 _C.LANE.DATASET = 'CULane'
 
-_C.LANE.GRIDING_NUM = 96
+_C.LANE.GRIDING_NUM = 120
 _C.LANE.AUX_SEG = True
-_C.LANE.END_EPOCH = 40
 _C.LANE.NUM_LANES = 4
 _C.LANE.TEST_DIR = './tmp'
 
@@ -98,7 +97,7 @@ _C.DATASET.HSV_V = 0.4  # image HSV-Value augmentation (fraction)
 
 # train
 _C.TRAIN = CN(new_allowed=True)
-_C.TRAIN.LR0 = 0.01  # initial learning rate (SGD=1E-2, Adam=1E-3)
+_C.TRAIN.LR0 = 0.001  # initial learning rate (SGD=1E-2, Adam=1E-3)
 _C.TRAIN.LRF = 0.2  # final OneCycleLR learning rate (lr0 * lrf)
 _C.TRAIN.WD = 1e-4
 _C.TRAIN.STEP = [25, 38] 
@@ -106,7 +105,7 @@ _C.TRAIN.WARMUP = 'linear'
 _C.TRAIN.WARMUP_ITERS = 695
 
 
-_C.TRAIN.OPTIMIZER = 'sgd'
+_C.TRAIN.OPTIMIZER = 'adam'
 _C.TRAIN.SCHEDULER = 'multi'
 _C.TRAIN.MOMENTUM = 0.937
 _C.TRAIN.NESTEROV = True
@@ -115,7 +114,7 @@ _C.TRAIN.GAMMA2 = 0.0
 _C.TRAIN.GAMMA3 = 0.1
 
 _C.TRAIN.BEGIN_EPOCH = 0
-_C.TRAIN.END_EPOCH = 100
+_C.TRAIN.END_EPOCH = 1
 
 _C.TRAIN.VAL_FREQ = 1
 _C.TRAIN.BATCH_SIZE = 80

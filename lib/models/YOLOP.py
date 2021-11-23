@@ -51,8 +51,8 @@ YOLOP = [
                                  [19, 50, 38, 81, 68, 157]], [128, 256, 512]]],  # Detection head 24
 
     [16, Conv, [256, 128, 3, 1]],  # 25
-    [-1, Conv, [128, 128, 3, 1]],  # 27
     [-1, Conv, [128, 128, 3, 1]],  # 26
+    [-1, Conv, [128, 128, 3, 1]],  # 27
     [-1, Conv, [128, 5, 3, 1]],  # 28
     # [-1, Upsample, [None, 2, 'nearest']],  # 29
     # [-1, Conv, [32, 16, 3, 1]],  # 30
@@ -60,7 +60,13 @@ YOLOP = [
     # [-1, Upsample, [None, 2, 'nearest']],  # 32
     # [-1, Conv, [8, 5, 3, 1]],  # 33 Driving area segmentation head
 
-    [16, Detect_lane, [97, 18, 4]]  # 34
+    [16, BottleneckCSP, [256, 128, 1, False]],  # 29
+    [-1, Conv, [128, 128, 3, 2]],  # 30
+    [[-1, 14], Concat, [1]],  # 31
+    [-1, BottleneckCSP, [256, 256, 1, False]],  # 32
+    [-1, Conv, [256, 256, 3, 2]],  # 33
+    [[-1, 10], Concat, [1]],  # 34
+    [-1, Detect_lane, [121, 18, 4]]  # 35
 ]
 
 

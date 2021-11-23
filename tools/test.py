@@ -39,7 +39,7 @@ def parse_args():
                         type=str,
                         default='runs/')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-16-05-39/epoch-8.pth', help='model.pth path(s)')
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-18-09-08/epoch-40.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/20211123_053516_lr_1e-03_b_80/ep030.pth', help='model.pth path(s)')
     parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, help='IOU threshold for NMS')
     args = parser.parse_args()
@@ -101,13 +101,15 @@ def main():
     model_dict = model.state_dict()
     checkpoint_file = args.weights
     logger.info("=> loading checkpoint '{}'".format(checkpoint_file))
-    checkpoint = torch.load(checkpoint_file)
-    checkpoint_dict = checkpoint['state_dict']
-    # checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
-    model_dict.update(checkpoint_dict)
-    # model_dict.update(checkpoint)
-    
-    model.load_state_dict(model_dict)
+    state_dict = torch.load(checkpoint_file, map_location = 'cpu')['model']
+    compatible_state_dict = {}
+    for k, v in state_dict.items():
+        if 'module.' in k:
+            compatible_state_dict[k[7:]] = v
+        else:
+            compatible_state_dict[k] = v
+
+    model.load_state_dict(compatible_state_dict, strict = False)
     logger.info("=> loaded checkpoint '{}' ".format(checkpoint_file))
 
     model = model.to(device)

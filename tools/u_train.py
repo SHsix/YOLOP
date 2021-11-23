@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument('--logDir',
                         help='log directory',
                         type=str,
-                        default='runs/')
+                        default='log/')
     parser.add_argument('--dataDir',
                         help='data directory',
                         type=str,
@@ -206,7 +206,8 @@ if __name__ == "__main__":
         net.load_state_dict(resume_dict['model'])
         if 'optimizer' in resume_dict.keys():
             optimizer.load_state_dict(resume_dict['optimizer'])
-        resume_epoch = int(os.path.split(cfg.resume)[1][2:5]) + 1
+        print(int(os.path.split(cfg.TRAIN.RESUME)[1][2:5]))
+        resume_epoch = int(os.path.split(cfg.TRAIN.RESUME)[1][2:5]) + 1
     else:
         resume_epoch = 0
 
@@ -223,6 +224,40 @@ if __name__ == "__main__":
     for epoch in range(resume_epoch, cfg.TRAIN.END_EPOCH+1):
 
         # train(net, train_loader, loss_dict, optimizer, scheduler,logger, epoch, metric_dict, cfg.use_aux)
+        train(net, train_loader, loss_dict, optimizer, scheduler, \
+            logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
+        save_model(net, optimizer, epoch ,work_dir, distributed)
+
+    Encoder_para_idx = [str(i) for i in range(0, 17)]
+    Det_Head_para_idx = [str(i) for i in range(17, 25)]
+    lane_Head_para_idx = [str(i) for i in range(25, 36)]
+
+    logger.info('Freeze Encoder and Lane detection head...')
+    for k, v in net.named_parameters():
+        v.requires_grad = True  # train all layers
+        if k.split(".")[1] in Encoder_para_idx + lane_Head_para_idx:
+            # print('freezing %s' % k)
+            v.requires_grad = False
+    loss_dict['weight'] = [0, 0, 0, 0, 1.0]
+
+    resume_epoch = cfg.TRAIN.END_EPOCH+1
+    for epoch in range(resume_epoch, resume_epoch + 1):
+
+        train(net, train_loader, loss_dict, optimizer, scheduler, \
+            logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
+        save_model(net, optimizer, epoch ,work_dir, distributed)
+
+    logger.info('Freeze Encoder and Object detection head...')
+    for k, v in net.named_parameters():
+        v.requires_grad = True  # train all layers
+        if k.split(".")[1] in Encoder_para_idx + Det_Head_para_idx:
+            # print('freezing %s' % k)
+            v.requires_grad = False
+    loss_dict['weight'] = [1.0, 0, 1.0, 0]
+
+    resume_epoch = cfg.TRAIN.END_EPOCH+1
+    for epoch in range(resume_epoch, resume_epoch + 1):
+        
         train(net, train_loader, loss_dict, optimizer, scheduler, \
             logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
         save_model(net, optimizer, epoch ,work_dir, distributed)
