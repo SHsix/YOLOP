@@ -66,7 +66,8 @@ YOLOP = [
     [-1, BottleneckCSP, [256, 256, 1, False]],  # 32
     [-1, Conv, [256, 256, 3, 2]],  # 33
     [[-1, 10], Concat, [1]],  # 34
-    [-1, Detect_lane, [121, 18, 4]]  # 35
+    [-1, BottleneckCSP, [512, 512, 1, False]],  # 35
+    [-1, Detect_lane, [121, 18, 4]]  # 36
 ]
 
 

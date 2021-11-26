@@ -4,6 +4,8 @@ import math
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 
+
+
 import torch
 import torch.nn.parallel
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -14,6 +16,7 @@ import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
 
+import pytorch_model_summary
 from torchsummary import summary
 from tensorboardX import SummaryWriter
 
@@ -88,8 +91,7 @@ def main():
     # start_time = time.time()
     print("begin to bulid up model...")
     # DP mode
-    device = select_device(logger, batch_size=cfg.TRAIN.BATCH_SIZE_PER_GPU* len(cfg.GPUS)) if not cfg.DEBUG \
-        else select_device(logger, 'cpu')
+    device = 'cuda'
 
 
     if args.local_rank != -1:
@@ -102,7 +104,7 @@ def main():
 
     model = get_net(cfg).to(device)
 
-    summary(model, (3, 256, 640))
+    print(pytorch_model_summary.summary(model, torch.zeros(1, 3, 256, 640).cuda()))
 
         
 

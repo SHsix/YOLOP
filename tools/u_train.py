@@ -243,7 +243,7 @@ if __name__ == "__main__":
     loss_dict['weight'] = [0, 0, 0, 0, 1.0]
 
     resume_epoch = cfg.TRAIN.END_EPOCH+1
-    for epoch in range(resume_epoch, resume_epoch + 1):
+    for epoch in range(resume_epoch, resume_epoch + cfg.TRAIN.BRANCH_EPOCH):
 
         train(net, train_loader, loss_dict, optimizer, scheduler, \
             logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
@@ -257,10 +257,10 @@ if __name__ == "__main__":
         if k.split(".")[1] in Encoder_para_idx + Det_Head_para_idx:
             # print('freezing %s' % k)
             v.requires_grad = False
-    loss_dict['weight'] = [1.0, 0, 1.0, 0]
+    loss_dict['weight'] = [1.0, 0, 1.0, 0, 0]
 
-    resume_epoch = cfg.TRAIN.END_EPOCH+1
-    for epoch in range(resume_epoch, resume_epoch + 1):
+    resume_epoch = resume_epoch + cfg.TRAIN.BRANCH_EPOCH
+    for epoch in range(resume_epoch, resume_epoch + cfg.TRAIN.BRANCH_EPOCH):
         
         train(net, train_loader, loss_dict, optimizer, scheduler, \
             logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
