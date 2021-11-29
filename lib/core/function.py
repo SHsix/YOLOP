@@ -115,7 +115,7 @@ def obj_train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num
                 writer_dict['train_global_steps'] = global_steps + 1
 
 
-def validate(epoch, config, val_loader, val_dataset, model, criterion, output_dir,
+def validate(epoch, config, val_loader, model, criterion, output_dir,
              tb_log_dir, writer_dict=None, logger=None, device='cpu', rank=-1):
     """
     validata
@@ -142,7 +142,7 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
     # imgsz is multiple of max_stride
     _, imgsz = [check_img_size(x, s=max_stride)
                 for x in config.MODEL.IMAGE_SIZE]
-    batch_size = config.TRAIN.BATCH_SIZE_PER_GPU * len(config.GPUS)
+    batch_size = config.TRAIN.BATCH_SIZE * len(config.GPUS)
     test_batch_size = config.TEST.BATCH_SIZE_PER_GPU * len(config.GPUS)
     training = False
     is_coco = False  # is coco dataset
@@ -187,7 +187,7 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
     model.eval()
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
 
-    for batch_i, (img, target, paths, shapes) in tqdm(enumerate(val_loader), total=len(val_loader)):
+    for batch_i, (img, _,  target, paths, shapes) in tqdm(enumerate(val_loader), total=len(val_loader)):
         if not config.DEBUG:
             img = img.to(device, non_blocking=True)
             assign_target = []
@@ -204,13 +204,13 @@ def validate(epoch, config, val_loader, val_dataset, model, criterion, output_di
 
             t = time_synchronized()
             # det_out, da_seg_out, ll_seg_out= model(img)
-            det_out = model(img)
+            det_out, _ = model(img)
 
             t_inf = time_synchronized() - t
             if batch_i > 0:
                 T_inf.update(t_inf/img.size(0), img.size(0))
 
-            inf_out, train_out = det_out[0]
+            inf_out, train_out = det_out
 
             # total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out), target, shapes,model)   #Compute loss
             total_loss, head_losses = criterion(

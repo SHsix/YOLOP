@@ -18,13 +18,17 @@ from tensorboardX import SummaryWriter
 import lib.dataset as dataset
 from lib.config import cfg
 from lib.config import update_config
-from lib.core.loss import get_loss
 from lib.core.function import validate
 from lib.core.general import fitness
 from lib.models import get_net
 from lib.utils.utils import create_logger, select_device
 
+from data.dataloader import get_test_loader
+
 from evaluation.eval_wrapper import eval_lane
+
+from utils.loss import get_loss
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Test Multitask network')
@@ -41,7 +45,7 @@ def parse_args():
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-16-05-39/epoch-8.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211124_005915_lr_1e-03_b_80/ep051.pth', help='model.pth path(s)')
     # 
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211128_112709_lr_1e-03_b_80/ep040.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211129_053109_lr_1e-03_b_80/ep040.pth', help='model.pth path(s)')
     parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, help='IOU threshold for NMS')
     args = parser.parse_args()
@@ -95,7 +99,7 @@ def main():
     print("finish build model")
     
     # define loss function (criterion) and optimizer
-    criterion = get_loss(cfg, device=device)
+    # criterion = get_loss(cfg, device=device)
 
     # load checkpoint model
 
@@ -120,6 +124,9 @@ def main():
     print('bulid model finished')
 
     print("begin to load data")
+
+
+    test_loader = get_test_loader(cfg, cfg.TRAIN.BATCH_SIZE, cfg.LANE.DATASET, distributed)
     # Data loading
     # normalize = transforms.Normalize(
     #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -147,7 +154,7 @@ def main():
 
     # epoch = 0 #special for test
     # detect_results, total_loss, maps, times = validate(
-    #     epoch,cfg, valid_loader, valid_dataset, model, criterion,
+    #     epoch,cfg, test_loader, model, criterion,
     #     final_output_dir, tb_log_dir, writer_dict,
     #     logger, device
     # )
@@ -165,7 +172,7 @@ def main():
     if not os.path.exists(cfg.LANE.TEST_DIR):
         os.mkdir(cfg.LANE.TEST_DIR)
 
-    eval_lane(cfg, model, cfg.LANE.DATASET, cfg.DATASET.DATAROOT, cfg.LANE.TEST_DIR, cfg.LANE.GRIDING_NUM, True, distributed)
+    eval_lane(cfg, model, test_loader, cfg.LANE.DATASET, cfg.DATASET.DATAROOT, cfg.LANE.TEST_DIR, cfg.LANE.GRIDING_NUM, True, distributed)
     print("test finish")
 
 

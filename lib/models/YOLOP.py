@@ -2,7 +2,7 @@ from lib.utils.utils import time_synchronized
 from lib.core.evaluate import SegmentationMetric
 from lib.utils import check_anchor_order
 from torch.nn import Upsample
-from lib.models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv, Detect_lane
+from lib.models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv, Detect_lane, Aux_lane
 from lib.utils import initialize_weights
 import torch
 from torch import tensor
@@ -21,7 +21,7 @@ sys.path.append(os.getcwd())
 
 # The lane line and the driving area segment branches without share information with each other and without link
 YOLOP = [
-    [24, 28],  # Det_out_idx, Da_Segout_idx, LL_Segout_idx
+    [24, 25],  # Det_out_idx, Da_Segout_idx, LL_Segout_idx
     [-1, Focus, [3, 32, 3]],  # 0
     [-1, Conv, [32, 64, 3, 2]],  # 1
     [-1, BottleneckCSP, [64, 64, 1]],  # 2
@@ -50,24 +50,26 @@ YOLOP = [
     [[17, 20, 23], Detect,  [1, [[3, 9, 5, 11, 4, 20], [7, 18, 6, 39, 12, 31],
                                  [19, 50, 38, 81, 68, 157]], [128, 256, 512]]],  # Detection head 24
 
-    [16, Conv, [256, 128, 3, 1]],  # 25
-    [-1, Conv, [128, 128, 3, 1]],  # 26
-    [-1, Conv, [128, 128, 3, 1]],  # 27
-    [-1, Conv, [128, 5, 3, 1]],  # 28
+    [[3,5,7], Aux_lane, []],  # 25
+    
+    # [-1, Conv, [128, 128, 3, 1]],  # 26
+    # [-1, Conv, [128, 128, 3, 1]],  # 27
+    # [-1, Conv, [128, 5, 3, 1]],  # 28
+
     # [-1, Upsample, [None, 2, 'nearest']],  # 29
     # [-1, Conv, [32, 16, 3, 1]],  # 30
     # [-1, BottleneckCSP, [16, 8, 1, False]],  # 31
     # [-1, Upsample, [None, 2, 'nearest']],  # 32
     # [-1, Conv, [8, 5, 3, 1]],  # 33 Driving area segmentation head
 
-    [16, BottleneckCSP, [256, 128, 1, False]],  # 29
-    [-1, Conv, [128, 128, 3, 2]],  # 30
-    [[-1, 14], Concat, [1]],  # 31
-    [-1, BottleneckCSP, [256, 256, 1, False]],  # 32
-    [-1, Conv, [256, 256, 3, 2]],  # 33
-    [[-1, 10], Concat, [1]],  # 34
-    [-1, BottleneckCSP, [512, 512, 1, False]],  # 35
-    [-1, Detect_lane, [121, 18, 4]]  # 36
+    # [16, BottleneckCSP, [256, 128, 1, False]],  # 29
+    # [-1, Conv, [128, 128, 3, 2]],  # 30
+    # [[-1, 14], Concat, [1]],  # 31
+    # [-1, BottleneckCSP, [256, 256, 1, False]],  # 32
+    # [-1, Conv, [256, 256, 3, 2]],  # 33
+    # [[-1, 10], Concat, [1]],  # 34
+    # [-1, BottleneckCSP, [512, 512, 1, False]],  # 35
+    [7, Detect_lane, [121, 18, 4]]  # 36
 ]
 
 

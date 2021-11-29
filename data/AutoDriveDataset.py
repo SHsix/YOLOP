@@ -45,10 +45,11 @@ class AutoDriveDataset(Dataset):
         self.use_aux = use_aux
         self.num_lanes = num_lanes
 
-        if len(transform) == 2:
+        if is_train:
             self.cv_transform = transform[0]
             self.segment_transform = transform[1]
-
+        else:
+            self.cv_transform = transform[0]
 
 
 
@@ -120,15 +121,18 @@ class AutoDriveDataset(Dataset):
         """
         data = self.db[idx]
 
+        if self.is_train:
+            lane_label = loader_func(data["lane_label"])
+            lane_pts = self._get_index(lane_label)
+            w, h = lane_label.size
 
-        lane_label = loader_func(data["lane_label"])
-        lane_pts = self._get_index(lane_label)
-        w, h = lane_label.size
-
+            
+            cls_label = self._grid_pts(lane_pts, self.griding_num, w)
+            cls_label = self.Tensor(cls_label)
+            cls_label = cls_label.squeeze()
         
-        cls_label = self._grid_pts(lane_pts, self.griding_num, w)
-        cls_label = self.Tensor(cls_label)
-        cls_label = cls_label.squeeze()
+        else:
+            img_name = data["image_name"]
 
         img = cv2.imread(data["image"], cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -223,7 +227,7 @@ class AutoDriveDataset(Dataset):
 
 
 
-        if self.use_aux:
+        if self.use_aux and self.is_train:
             assert self.segment_transform is not None
             seg_label = self.segment_transform(lane_label)
 
@@ -234,8 +238,10 @@ class AutoDriveDataset(Dataset):
 
 
 
-
-        return img, [target, cls_label, seg_label]
+        if self.is_train:
+            return img, [target, cls_label, seg_label]
+        else:
+            return img, img_name, target, data["image"], shapes
         #, data["image"]
 
 
@@ -332,4 +338,16 @@ class AutoDriveDataset(Dataset):
             seg_det.append(l_seg)
      
         return torch.stack(img, 0), [torch.cat(tar_det, 0), torch.stack(cls_det, 0), torch.stack(seg_det, 0)]
+
+    @staticmethod
+    def test_collate_fn(batch):
+        img, img_name, target, img_pth, shapes= zip(*batch)
+        tar_det = []
+        for i, l in enumerate(target):
+            l_tar = l
+            l_tar[:, 0] = i  # add target image index for build_targets()
+            tar_det.append(l_tar)
+            
+     
+        return torch.stack(img, 0), img_name, torch.cat(tar_det, 0), img_pth, shapes
 

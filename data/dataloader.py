@@ -44,7 +44,7 @@ def get_train_loader(cfg, batch_size, griding_num, dataset, use_aux, distributed
 
     return train_loader, cls_num_per_lane
 
-def get_test_loader(cfg, batch_size, data_root,dataset, distributed):
+def get_test_loader(cfg, batch_size, dataset, distributed):
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     )
@@ -53,15 +53,20 @@ def get_test_loader(cfg, batch_size, data_root,dataset, distributed):
         normalize,    
     ])
     if dataset == 'CULane':
-        test_dataset = LaneTestDataset(data_root, os.path.join(data_root, 'list/test.txt'),img_transform = cv_transform)
-        cls_num_per_lane = 18
+        test_dataset = Culane(cfg = cfg, is_train= False, inputsize=cfg.MODEL.IMAGE_SIZE, \
+        transform = [cv_transform], row_anchor = culane_row_anchor,
+                    griding_num=None, use_aux=False, num_lanes = None
+        )
+        # test_dataset = LaneTestDataset(data_root, os.path.join(data_root, 'list/test.txt'),img_transform = cv_transform)
+
  
 
     if distributed:
         sampler = SeqDistributedSampler(test_dataset, shuffle = False)
     else:
         sampler = torch.utils.data.SequentialSampler(test_dataset)
-    loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, sampler = sampler, num_workers=16)
+    loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, sampler = sampler, \
+        num_workers=16, collate_fn=Culane.test_collate_fn)
     return loader
 
 

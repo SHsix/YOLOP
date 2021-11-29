@@ -84,9 +84,9 @@ class Hardswish(nn.Module):  # export-friendly version of nn.Hardswish()
 
 class Conv(nn.Module):
     # Standard convolution
-    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True, d = 1):  # ch_in, ch_out, kernel, stride, padding, groups
         super(Conv, self).__init__()
-        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
+        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False, dilation=d)
         self.bn = nn.BatchNorm2d(c2)
         try:
             self.act = Hardswish() if act else nn.Identity()
@@ -168,7 +168,62 @@ class Concat(nn.Module):
         for f in x:
             print(f.shape) """
         return torch.cat(x, self.d)
-    
+    # ch_in, ch_out, kernel, stride, padding, groups
+class Aux_lane(nn.Module):
+    # Concatenate a list of tensors along dimension
+    def __init__(self):
+        super(Aux_lane, self).__init__()
+        self.aux_header2 = torch.nn.Sequential(
+            Conv(128, 128, 3, 1, 1),
+            Conv(128, 128, 3, p=1),
+            Conv(128, 128, 3, p=1)
+            # conv_bn_relu(128, 128, kernel_size=3, stride=1, padding=1),
+            # conv_bn_relu(128,128,3,padding=1),
+            # conv_bn_relu(128,128,3,padding=1),
+            # conv_bn_relu(128,128,3,padding=1),
+        )
+        self.aux_header3 = torch.nn.Sequential(
+            Conv(256, 128, 3, 1, 1),
+            Conv(128, 128, 3, p=1),
+            Conv(128, 128, 3, p=1)
+        )
+        self.aux_header4 = torch.nn.Sequential(
+            Conv(512, 128, 3, 1, 1),
+            Conv(128, 128, 3, p=1)
+        )
+        self.aux_combine = torch.nn.Sequential(
+            Conv(384, 256, 3, p=2,d=2),
+            Conv(256, 128, 3, p=2,d=2),
+            Conv(128, 128, 3, p=2,d=2),
+            Conv(128, 128, 3, p=4,d=4),
+            torch.nn.Conv2d(128, 5, 1)
+
+            # conv_bn_relu(384, 256, 3,padding=2,dilation=2),
+            # conv_bn_relu(256, 128, 3,padding=2,dilation=2),
+            # conv_bn_relu(128, 128, 3,padding=2,dilation=2),
+            # conv_bn_relu(128, 128, 3,padding=4,dilation=4),
+            # torch.nn.Conv2d(128, cls_dim[-1] + 1,1)
+
+            # output : n, num_of_lanes+1, h, w
+        )
+        
+    def forward(self, x):
+        # [64, 256, 32, 32]
+
+        x2,x3,fea = x
+        if x2.shape[-1] == 16:
+            return torch.zeros(1, 3, 1, 1)
+        x2 = self.aux_header2(x2)
+        x3 = self.aux_header3(x3)
+        x3 = torch.nn.functional.interpolate(x3,scale_factor = 2,mode='bilinear')
+        x4 = self.aux_header4(fea)
+        x4 = torch.nn.functional.interpolate(x4,scale_factor = 4,mode='bilinear')
+        aux_seg = torch.cat([x2,x3,x4],dim=1)
+        aux_seg = self.aux_combine(aux_seg)
+
+        return aux_seg
+
+
 class Detect_lane(nn.Module):
     # Concatenate a list of tensors along dimension
     def __init__(self, grid, ncls, num):

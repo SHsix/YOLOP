@@ -31,17 +31,25 @@ class Culane(AutoDriveDataset):
         gt_db = []
         height, width = self.shapes
         for dir in tqdm(list(self.img_list)):
-            dir_info = dir.split()
-            img_name, label_name = dir_info[0], dir_info[1]
-            if img_name[0] == '/':
-                img_name = img_name[1:]
-                label_name = label_name[1:]
+            if self.is_train:
+                dir_info = dir.split()
+                img_name, label_name = dir_info[0], dir_info[1]
+                if img_name[0] == '/':
+                    img_name = img_name[1:]
+                    label_name = label_name[1:]
             
-            img_path = os.path.join(self.img_path, img_name)
-            lane_label_path = os.path.join(self.img_path, label_name)
-            ob_label_path = os.path.join(self.ob_label_root, img_name)[:-3] + 'json'
+                img_path = os.path.join(self.img_path, img_name)
+                lane_label_path = os.path.join(self.img_path, label_name)
+                ob_label_path = os.path.join(self.ob_label_root, img_name)[:-3] + 'json'
 
+            else :
+                img_name= dir.split()[0]
+                if img_name[0] == '/':
+                    img_name = img_name[1:]
             
+                img_path = os.path.join(self.img_path, img_name)
+                ob_label_path = os.path.join(self.ob_label_root, img_name)[:-3] + 'json'
+
             with open(ob_label_path, 'r') as f:
                 label = json.load(f)
                 
@@ -57,12 +65,18 @@ class Culane(AutoDriveDataset):
                     gt[idx][0] = 0
                     gt[idx][1:] = x, y, w, h
 
-            rec = [{
-                'image': img_path,
-                'ob_label': gt,
-                'lane_label' : lane_label_path
-            }]
-
+            if self.is_train:
+                rec = [{
+                    'image': img_path,
+                    'ob_label': gt,
+                    'lane_label' : lane_label_path
+                }]
+            else:
+                rec = [{
+                    'image': img_path,
+                    'image_name': img_name,
+                    'ob_label': gt
+                }]
             gt_db += rec
         print('database build finish')
         return gt_db
