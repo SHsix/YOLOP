@@ -20,8 +20,7 @@ def build_targets(cfg, predictions, targets, model):
     t [index, class, x, y, w, h, head_index]
     '''
     # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
-    det = model.module.model[model.module.detector_index] if is_parallel(model) \
-        else model.model[model.detector_index]  # Detect() module
+    det = model.yolo
     # print(type(model))
     # det = model.model[model.detector_index]
     # print(type(det))

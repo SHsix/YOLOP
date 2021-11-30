@@ -103,7 +103,6 @@ def main():
     print("load model to device")
 
     model = get_net(cfg).to(device)
-
     print(pytorch_model_summary.summary(model, torch.zeros(1, 3, 256, 640).cuda()))
 
         

@@ -310,7 +310,7 @@ def detect(cfg,opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211124_005915_lr_1e-03_b_80/ep051.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211129_115322_lr_1e-03_b_80/ep020.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-16-05-39/epoch-8.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-39.pth', help='model.pth path(s)')
     parser.add_argument('--source', type=str, default='inference/videos', help='source')  # file/folder   ex:inference/images

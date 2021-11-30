@@ -3,7 +3,7 @@ from lib.core.evaluate import SegmentationMetric
 from lib.utils import check_anchor_order
 from torch.nn import Upsample
 from lib.models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv, Detect_lane, Aux_lane
-from lib.utils import initialize_weights
+# from lib.utils import initialize_weights
 import torch
 from torch import tensor
 import torch.nn as nn
@@ -11,6 +11,9 @@ import sys
 import os
 import math
 import sys
+from lib.models.backbone import resnet
+
+import numpy as np
 sys.path.append(os.getcwd())
 # sys.path.append("lib/models")
 # sys.path.append("lib/utils")
@@ -72,42 +75,74 @@ YOLOP = [
     [7, Detect_lane, [121, 18, 4]]  # 36
 ]
 
+class conv_bn_relu(torch.nn.Module):
+    def __init__(self,in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1,bias=False):
+        super(conv_bn_relu,self).__init__()
+        self.conv = torch.nn.Conv2d(in_channels,out_channels, kernel_size, 
+            stride = stride, padding = padding, dilation = dilation,bias = bias)
+        self.bn = torch.nn.BatchNorm2d(out_channels)
+        self.relu = torch.nn.ReLU()
+
+    def forward(self,x):
+        x = self.conv(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        return x
+
 
 class MCnet(nn.Module):
-    def __init__(self, block_cfg, aux_seg, **kwargs):
+    def __init__(self, pretrained=True, backbone='18', cls_dim=(37, 10, 4), use_aux=False):
         super(MCnet, self).__init__()
         layers, save = [], []
         self.nc = 1
-        self.detector_index = -1
-        self.lane_index = -1
-        self.det_out_idx = block_cfg[0][0]
-        self.lane_seg_idx = block_cfg[0][1]
 
-        self.aux_seg = aux_seg
+        self.cls_dim = cls_dim # (num_gridding, num_cls_per_lane, num_of_lanes)
+        # num_cls_per_lane is the number of row anchors
+        self.use_aux = use_aux
+        self.total_dim = np.prod(cls_dim)
 
-        # Build model
-        for i, (from_, block, args) in enumerate(block_cfg[1:]):
-            if not self.aux_seg and i in range(self.det_out_idx+1, self.lane_seg_idx+1):
-                continue
-            block = eval(block) if isinstance(
-                block, str) else block  # eval strings
-            if block is Detect:
-                self.detector_index = i
-            if block is Detect_lane:
-                self.lane_index = i
-            block_ = block(*args)
-            block_.index, block_.from_ = i, from_
-            layers.append(block_)
-            save.extend(x % i for x in ([from_] if isinstance(
-                from_, int) else from_) if x != -1)  # append to savelist
-        assert self.detector_index == block_cfg[0][0]
+        self.aux_seg = use_aux
+        
+        self.model = resnet(backbone, pretrained=pretrained)
+        self.yolo = Detect(1, [[3, 9, 5, 11, 4, 20], [7, 18, 6, 39, 12, 31],
+                                 [19, 50, 38, 81, 68, 157]], [128, 256, 512])
 
-        self.model = nn.Sequential(*layers)
-        self.save = sorted(save)
-        self.names = [str(i) for i in range(self.nc)]
+        if self.use_aux:
+            self.aux_header2 = torch.nn.Sequential(
+                conv_bn_relu(128, 128, kernel_size=3, stride=1, padding=1) if backbone in ['34','18'] else conv_bn_relu(512, 128, kernel_size=3, stride=1, padding=1),
+                conv_bn_relu(128,128,3,padding=1),
+                conv_bn_relu(128,128,3,padding=1),
+                conv_bn_relu(128,128,3,padding=1),
+            )
+            self.aux_header3 = torch.nn.Sequential(
+                conv_bn_relu(256, 128, kernel_size=3, stride=1, padding=1) if backbone in ['34','18'] else conv_bn_relu(1024, 128, kernel_size=3, stride=1, padding=1),
+                conv_bn_relu(128,128,3,padding=1),
+                conv_bn_relu(128,128,3,padding=1),
+            )
+            self.aux_header4 = torch.nn.Sequential(
+                conv_bn_relu(512, 128, kernel_size=3, stride=1, padding=1) if backbone in ['34','18'] else conv_bn_relu(2048, 128, kernel_size=3, stride=1, padding=1),
+                conv_bn_relu(128,128,3,padding=1),
+            )
+            self.aux_combine = torch.nn.Sequential(
+                conv_bn_relu(384, 256, 3,padding=2,dilation=2),
+                conv_bn_relu(256, 128, 3,padding=2,dilation=2),
+                conv_bn_relu(128, 128, 3,padding=2,dilation=2),
+                conv_bn_relu(128, 128, 3,padding=4,dilation=4),
+                torch.nn.Conv2d(128, cls_dim[-1] + 1,1)
+                # output : n, num_of_lanes+1, h, w
+            )
+            initialize_weights(self.aux_header2,self.aux_header3,self.aux_header4,self.aux_combine)
+        
+        self.cls = torch.nn.Sequential(
+            torch.nn.Linear(8 * 8 * 20, 1024),
+            torch.nn.ReLU(),
+            torch.nn.Linear(1024, self.total_dim),
+        )
+        self.pool = torch.nn.Conv2d(512,8,1) if backbone in ['34','18'] else torch.nn.Conv2d(2048,8,1)
+
 
         # set stride、anchor for detector
-        Detector = self.model[self.detector_index]  # detector
+        Detector = self.yolo  # detector
         if isinstance(Detector, Detect):
             s = 128  # 2x min stride
             # for x in self.forward(torch.zeros(1, 3, s, s)):
@@ -124,41 +159,42 @@ class MCnet(nn.Module):
             self.stride = Detector.stride
             self._initialize_biases()
 
-        initialize_weights(self)
 
     def forward(self, x):
-        cache = []
-        out = []
-        lane_out = []
-        det_out = None
-        for i, block in enumerate(self.model):
-            if block.from_ != -1:
-                x = cache[block.from_] if isinstance(block.from_, int) else [
-                    x if j == -1 else cache[j] for j in block.from_]  # calculate concat detect
-            x = block(x)
-            if i == self.detector_index:
-                det_out = x
-            # if aux_seg = true -> result [seg, cls]
-            # else -> result -> [cls]
-            if self.aux_seg:
-                if i == self.lane_seg_idx:
-                    lane_out.append(x)
-                if i == self.lane_index:
-                    lane_out.insert(0, x)
-            else:
-                if i == self.lane_index:
-                    lane_out.append(x)
-            cache.append(x if block.index in self.save else None)
-        out.append(lane_out)
-        out.insert(0, det_out)
-        return out
+
+        lane_pred = []
+        
+        x2,x3,fea = self.model(x)
+        if x.shape[-1] == 128:
+            object_pred = self.yolo([x2, x3, fea])
+            return [object_pred]
+        object_pred = self.yolo([x2, x3, fea])
+
+
+        if self.use_aux:
+            x2 = self.aux_header2(x2)
+            x3 = self.aux_header3(x3)
+            x3 = torch.nn.functional.interpolate(x3,scale_factor = 2,mode='bilinear')
+            x4 = self.aux_header4(fea)
+            x4 = torch.nn.functional.interpolate(x4,scale_factor = 4,mode='bilinear')
+            aux_seg = torch.cat([x2,x3,x4],dim=1)
+            aux_seg = self.aux_combine(aux_seg)
+            lane_pred.append(aux_seg)
+        else:
+            aux_seg = None
+        
+        fea = self.pool(fea).view(-1, 8 * fea.shape[-1] * fea.shape[-2])
+        group_cls = self.cls(fea).view(-1, *self.cls_dim)
+        lane_pred.insert(0, group_cls)
+
+        return [object_pred, lane_pred]
 
     # initialize biases into Detect(), cf is class frequency
     def _initialize_biases(self, cf=None):
         # https://arxiv.org/abs/1708.02002 section 3.3
         # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
         # m = self.model[-1]  # Detect() module
-        m = self.model[self.detector_index]  # Detect() module
+        m = self.yolo  # Detect() module
         for mi, s in zip(m.m, m.stride):  # from
             b = mi.bias.view(m.na, -1)  # conv.bias(255) to (3,85)
             # obj (8 objects per 640 image)
@@ -168,10 +204,35 @@ class MCnet(nn.Module):
             mi.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
 
-def get_net(cfg, **kwargs):
+def initialize_weights(*models):
+    for model in models:
+        real_init_weights(model)
+def real_init_weights(m):
+
+    if isinstance(m, list):
+        for mini_m in m:
+            real_init_weights(mini_m)
+    else:
+        if isinstance(m, torch.nn.Conv2d):    
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            if m.bias is not None:
+                torch.nn.init.constant_(m.bias, 0)
+        elif isinstance(m, torch.nn.Linear):
+            m.weight.data.normal_(0.0, std=0.01)
+        elif isinstance(m, torch.nn.BatchNorm2d):
+            torch.nn.init.constant_(m.weight, 1)
+            torch.nn.init.constant_(m.bias, 0)
+        elif isinstance(m,torch.nn.Module):
+            for mini_m in m.children():
+                real_init_weights(mini_m)
+        else:
+            print('unkonwn module', m)
+
+def get_net(cfg):
     m_block_cfg = YOLOP
     aux_seg = cfg.LANE.AUX_SEG
-    model = MCnet(m_block_cfg, aux_seg, **kwargs)
+    model = MCnet(pretrained=cfg.TRAIN.PRETRAIN, backbone=cfg.TRAIN.BACKBONE, \
+        cls_dim=(cfg.LANE.GRIDING_NUM+1, 18, cfg.LANE.NUM_LANES), use_aux=cfg.LANE.AUX_SEG)
     return model
 
 
