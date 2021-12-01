@@ -45,11 +45,43 @@ def parse_args():
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-16-05-39/epoch-8.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211124_005915_lr_1e-03_b_80/ep051.pth', help='model.pth path(s)')
     # 
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211129_115322_lr_1e-03_b_80/ep020.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211201_022411_lr_1e-03_b_80/ep041.pth', help='model.pth path(s)')
     parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, help='IOU threshold for NMS')
     args = parser.parse_args()
-
+#200 under 40
+# res_normal 0.603105
+# res_crowd 0.373446
+# res_night 0.259186
+# res_noline 0.239895
+# res_shadow 0.227508
+# res_arrow 0.526417
+# res_hlight 0.36834
+# res_curve 0.331731
+# res_cross 0.0
+# 0.39971659453870023
+#100 0.407315085
+# res_normal 0.612103
+# res_crowd 0.382843
+# res_night 0.261911
+# res_noline 0.249684
+# res_shadow 0.257835
+# res_arrow 0.534634
+# res_hlight 0.360135
+# res_curve 0.334534
+# res_cross 0.0
+# 0.4073150853378962
+# 50
+# res_normal 0.61781
+# res_crowd 0.386951
+# res_night 0.268986
+# res_noline 0.253421
+# res_shadow 0.26023
+# res_arrow 0.542563
+# res_hlight 0.35258
+# res_curve 0.338983
+# res_cross 0.0
+# 0.41345028117382876
     return args
 #
 # /home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-40.pth

@@ -104,7 +104,7 @@ def main():
 
     model = get_net(cfg).to(device)
     print(pytorch_model_summary.summary(model, torch.zeros(1, 3, 256, 640).cuda()))
-
+    # summary(model, torch.zeros(3, 256, 640).cuda())
         
 
 if __name__ == '__main__':

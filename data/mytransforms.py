@@ -66,17 +66,52 @@ class RandomRotate(object):
     def __init__(self, angle):
         self.angle = angle
 
-    def __call__(self, image, label):
+    def __call__(self, image, label, targets):
+        image = Image.fromarray(image)
         assert label is None or image.size == label.size
-
+        w, h = image.size
 
         angle = random.randint(0, self.angle * 2) - self.angle
 
         label = label.rotate(angle, resample=Image.NEAREST)
         image = image.rotate(angle, resample=Image.BILINEAR)
 
-        return image, label
 
+
+        # For object detection Rotation
+        R = np.eye(3)
+        # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
+
+        R[:2] = cv2.getRotationMatrix2D(angle=angle, center=(w//2, h//2), scale=1)
+
+        n = len(targets)
+        if n:
+            xy = np.ones((n * 4, 3))
+            xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
+            xy = xy @ R.T
+            xy = xy[:, :2].reshape(n, 8)
+
+            # create new boxes
+            x = xy[:, [0, 2, 4, 6]]
+            y = xy[:, [1, 3, 5, 7]]
+            xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
+            # clip boxes
+            xy[:, [0, 2]] = xy[:, [0, 2]].clip(0, w)
+            xy[:, [1, 3]] = xy[:, [1, 3]].clip(0, h)
+            
+            i = _box_candidates(box1=targets[:, 1:5].T, box2=xy.T)
+            targets = targets[i]
+            targets[:, 1:5] = xy[i]
+
+        return np.array(image), label, targets
+
+
+def _box_candidates(box1, box2, wh_thr=2, ar_thr=20, area_thr=0.1):  # box1(4,n), box2(4,n)
+    # Compute candidate boxes: box1 before augment, box2 after augment, wh_thr (pixels), aspect_ratio_thr, area_ratio
+    w1, h1 = box1[2] - box1[0], box1[3] - box1[1]
+    w2, h2 = box2[2] - box2[0], box2[3] - box2[1]
+    ar = np.maximum(w2 / (h2 + 1e-16), h2 / (w2 + 1e-16))  # aspect ratio
+    return (w2 > wh_thr) & (h2 > wh_thr) & (w2 * h2 / (w1 * h1 + 1e-16) > area_thr) & (ar < ar_thr)  # candidates
 
 
 # ===============================label tranforms============================
@@ -117,9 +152,9 @@ def find_start_pos(row_sample,start_line):
 class RandomLROffsetLABEL(object):
     def __init__(self,max_offset):
         self.max_offset = max_offset
-    def __call__(self,img,label):
+    def __call__(self,img,label,targets):
         offset = np.random.randint(-self.max_offset,self.max_offset)
-        w, h = img.size
+        h, w = img.shape[:2]
 
         img = np.array(img)
         if offset > 0:
@@ -138,14 +173,41 @@ class RandomLROffsetLABEL(object):
             offset = -offset
             label[:,0:w-offset] = label[:,offset:]
             label[:,w-offset:] = 0
-        return Image.fromarray(img),Image.fromarray(label)
+
+        n = len(targets)
+        if n:
+            # xy = np.ones((n * 4, 3))
+            # xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
+            # xy = xy[:, :2].reshape(n, 8)
+
+            # # create new boxes
+            # x = xy[:, [0, 2, 4, 6]]
+            # y = xy[:, [1, 3, 5, 7]]
+            # xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
+            # # clip boxes
+            xy = np.ones((n, 4))
+            xy = targets[:, [1,2,3,4]]
+            if offset > 0:
+                xy[:, [0, 2]] += offset
+                xy[:, [0, 2]] = xy[:, [0, 2]].clip(0, w)
+            if offset < 0:
+                real_offset = -offset
+                xy[:, [0, 2]] -= real_offset
+                xy[:, [0, 2]] = xy[:, [0, 2]].clip(0, w)
+
+            
+            i = _box_candidates(box1=targets[:, 1:5].T, box2=xy.T)
+            targets = targets[i]
+            targets[:, 1:5] = xy[i]
+        return img, Image.fromarray(label), targets
 
 class RandomUDoffsetLABEL(object):
     def __init__(self,max_offset):
         self.max_offset = max_offset
-    def __call__(self,img,label):
+    def __call__(self,img,label, targets):
         offset = np.random.randint(-self.max_offset,self.max_offset)
-        w, h = img.size
+
+        h, w = img.shape[:2]
 
         img = np.array(img)
         if offset > 0:
@@ -164,4 +226,28 @@ class RandomUDoffsetLABEL(object):
             offset = -offset
             label[0:h-offset,:] = label[offset:,:]
             label[h-offset:,:] = 0
-        return Image.fromarray(img),Image.fromarray(label)
+
+
+
+        n = len(targets)
+        if n:
+            # xy = np.ones((n * 4, 3))
+            # xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
+            # xy = xy[:, :2].reshape(n, 8)
+
+            # # create new boxes
+            # x = xy[:, [0, 2, 4, 6]]
+            # y = xy[:, [1, 3, 5, 7]]
+            # xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
+            # # clip boxes
+            xy = np.ones((n, 4))
+            xy = targets[:, [1,2,3,4]]
+            if offset > 0:
+                xy[:, [1, 3]] += offset
+                xy[:, [1, 3]] = xy[:, [1, 3]].clip(0, h)
+            if offset < 0:
+                real_offset = -offset
+                xy[:, [1, 3]] -= real_offset
+                xy[:, [1, 3]] = xy[:, [1, 3]].clip(0, h)
+
+        return img,Image.fromarray(label), targets
