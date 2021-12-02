@@ -22,11 +22,15 @@ def get_train_loader(cfg, batch_size, griding_num, dataset, use_aux, distributed
         transforms.ToTensor(),
         normalize,    
     ])
-
+    simu_transform = mytransforms.Compose2([
+        mytransforms.RandomRotate(3),
+        mytransforms.RandomUDoffsetLABEL(88),
+        mytransforms.RandomLROffsetLABEL(160)
+    ])
 
     if dataset == 'CULane':
         train_dataset = Culane(cfg = cfg, is_train= True, inputsize=cfg.MODEL.IMAGE_SIZE, \
-            transform = [cv_transform, segment_transform], row_anchor = culane_row_anchor,
+            transform = [cv_transform, simu_transform, segment_transform], row_anchor = culane_row_anchor,
                         griding_num=griding_num, use_aux=use_aux, num_lanes = num_lanes
             )
         cls_num_per_lane = 18

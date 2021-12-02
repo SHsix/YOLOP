@@ -165,9 +165,6 @@ def validate(epoch, config, val_loader, model, criterion, output_dir,
     seen = 0
     confusion_matrix = ConfusionMatrix(
         nc=model.nc)  # detector confusion matrix
-    da_metric = SegmentationMetric(
-        config.num_seg_class)  # segment confusion matrix
-    ll_metric = SegmentationMetric(2)  # segment confusion matrix
 
     names = {k: v for k, v in enumerate(
         model.names if hasattr(model, 'names') else model.module.names)}

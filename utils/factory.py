@@ -8,10 +8,10 @@ import torch
 def get_optimizer(net,cfg):
     training_params = filter(lambda p: p.requires_grad, net.parameters())
     if cfg.TRAIN.OPTIMIZER == 'Adam':
-        optimizer = torch.optim.Adam(training_params, lr=cfg.TRAIN.BATCH_SIZE, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
+        optimizer = torch.optim.Adam(training_params, lr=cfg.TRAIN.LR0, weight_decay=cfg.TRAIN.WD)
     elif cfg.TRAIN.OPTIMIZER == 'SGD':
-        optimizer = torch.optim.SGD(training_params, lr=cfg.TRAIN.BATCH_SIZE, momentum=cfg.TRAIN.MOMENTUM,
-                                    weight_decay=cfg.TRAIN.WEIGHT_DECAY)
+        optimizer = torch.optim.SGD(training_params, lr=cfg.TRAIN.LR0, momentum=cfg.TRAIN.MOMENTUM,
+                                    weight_decay=cfg.TRAIN.WD)
     else:
         raise NotImplementedError
     return optimizer

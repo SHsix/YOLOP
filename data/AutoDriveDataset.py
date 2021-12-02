@@ -47,7 +47,9 @@ class AutoDriveDataset(Dataset):
 
         if is_train:
             self.cv_transform = transform[0]
-            self.segment_transform = transform[1]
+            self.simu_transform = transform[1]
+            self.segment_transform = transform[2]
+
         else:
             self.cv_transform = transform[0]
 
@@ -121,22 +123,10 @@ class AutoDriveDataset(Dataset):
         """
         data = self.db[idx]
 
-        if self.is_train:
-            lane_label = loader_func(data["lane_label"])
-            lane_pts = self._get_index(lane_label)
-            w, h = lane_label.size
-
-            
-            cls_label = self._grid_pts(lane_pts, self.griding_num, w)
-            cls_label = self.Tensor(cls_label)
-            cls_label = cls_label.squeeze()
-        
-        else:
-            img_name = data["image_name"]
-
         img = cv2.imread(data["image"], cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
  
+
         resized_shape = self.inputsize
         if isinstance(resized_shape, list):
             resized_shape = max(resized_shape)
@@ -163,7 +153,10 @@ class AutoDriveDataset(Dataset):
             labels[:, 2] = ratio[1] * h * (det_label[:, 2] - det_label[:, 4] / 2) + pad[1]  # pad height
             labels[:, 3] = ratio[0] * w * (det_label[:, 1] + det_label[:, 3] / 2) + pad[0]
             labels[:, 4] = ratio[1] * h * (det_label[:, 2] + det_label[:, 4] / 2) + pad[1]
-            
+ 
+  
+
+
         if self.is_train:
             # combination = (img, seg_label, lane_label)
             # img, labels = random_perspective(
@@ -176,7 +169,12 @@ class AutoDriveDataset(Dataset):
             # )
             # #print(labels.shape)
             # augment_hsv(img, hgain=self.cfg.DATASET.HSV_H, sgain=self.cfg.DATASET.HSV_S, vgain=self.cfg.DATASET.HSV_V)
-            # # img, seg_label, labels = cutout(combination=combination, labels=labels)
+            # img, seg_label, labels = cutout(combination=combination, labels=labels)
+            lane_label = loader_func(data["lane_label"])
+            lane_label = lane_label.resize((640, 256))
+            if self.simu_transform is not None:
+                img, lane_label, labels = self.simu_transform(img,lane_label, labels)
+
 
             if len(labels):
                 # convert xyxy to xywh
@@ -185,27 +183,9 @@ class AutoDriveDataset(Dataset):
                 # Normalize coordinates 0 - 1
                 labels[:, [2, 4]] /= img.shape[0]  # height
                 labels[:, [1, 3]] /= img.shape[1]  # width
-
-            # # if self.is_train:
-            # # random left-right flip
-            # lr_flip = True
-            # if lr_flip and random.random() < 0.5:
-            #     img = np.fliplr(img)
-            #     # seg_label = np.fliplr(seg_label)
-            #     # lane_label = np.fliplr(lane_label)
-            #     if len(labels):
-            #         labels[:, 1] = 1 - labels[:, 1]
-
-            # # random up-down flip
-            # ud_flip = False
-            # if ud_flip and random.random() < 0.5:
-            #     img = np.flipud(img)
-            #     # seg_label = np.filpud(seg_label)
-            #     # lane_label = np.filpud(lane_label)
-            #     if len(labels):
-            #         labels[:, 2] = 1 - labels[:, 2]
         
         else:
+            img_name = data["image_name"]
             if len(labels):
                 # convert xyxy to xywh
                 labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
@@ -213,6 +193,9 @@ class AutoDriveDataset(Dataset):
                 # Normalize coordinates 0 - 1
                 labels[:, [2, 4]] /= img.shape[0]  # height
                 labels[:, [1, 3]] /= img.shape[1]  # width
+            
+
+
 
         labels_out = torch.zeros((len(labels), 6))
         if len(labels):
@@ -228,6 +211,14 @@ class AutoDriveDataset(Dataset):
 
 
         if self.use_aux and self.is_train:
+            lane_pts = self._get_index(lane_label)
+            w, h = lane_label.size
+
+            
+            cls_label = self._grid_pts(lane_pts, self.griding_num, w)
+            cls_label = self.Tensor(cls_label)
+            cls_label = cls_label.squeeze()
+        
             assert self.segment_transform is not None
             seg_label = self.segment_transform(lane_label)
 
@@ -260,7 +251,7 @@ class AutoDriveDataset(Dataset):
 
     def _get_index(self, label):
         w, h = label.size
-
+        sample_tmp = self.row_anchor
         if h != 256:
             scale_f = lambda x : int((x * 1.0/256) * h)
             sample_tmp = list(map(scale_f,self.row_anchor))
