@@ -128,10 +128,10 @@ def main():
     # device = select_device(logger, 'cpu')
 
     model = get_net(cfg)
-    print("finish build model")
+    # print("finish build model")
     
     # define loss function (criterion) and optimizer
-    # criterion = get_loss(cfg, device=device)
+    criterion = get_loss(cfg, device=device)
 
     # load checkpoint model
 
@@ -184,20 +184,20 @@ def main():
     # )
     # print('load data finished')
 
-    # epoch = 0 #special for test
-    # detect_results, total_loss, maps, times = validate(
-    #     epoch,cfg, test_loader, model, criterion,
-    #     final_output_dir, tb_log_dir, writer_dict,
-    #     logger, device
-    # )
-    # fi = fitness(np.array(detect_results).reshape(1, -1))
-    # msg =   'Test:    Loss({loss:.3f})\n' \
-    #                   'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
-    #                   'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
-    #                       loss=total_loss, 
-    #                       p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
-    #                       t_inf=times[0], t_nms=times[1])
-    # logger.info(msg)
+    epoch = 0 #special for test
+    detect_results, total_loss, maps, times = validate(
+        epoch,cfg, test_loader, model, criterion,
+        final_output_dir, tb_log_dir, writer_dict,
+        logger, device
+    )
+    fi = fitness(np.array(detect_results).reshape(1, -1))
+    msg =   'Test:    Loss({loss:.3f})\n' \
+                      'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
+                      'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
+                          loss=total_loss, 
+                          p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
+                          t_inf=times[0], t_nms=times[1])
+    logger.info(msg)
 
 
 

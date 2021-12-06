@@ -62,7 +62,7 @@ for i in range(10):
     y = net(x)
 
 t_all = []
-for i in range(100):
+for i in range(10000):
     t1 = time.time()
     y = net(x)
     t2 = time.time()

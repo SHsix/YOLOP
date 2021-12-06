@@ -27,6 +27,13 @@ class MultiHeadLoss(nn.Module):
         # object loss criteria
         self.BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(
             [self.obj_pos_weight])).to(device)
+
+
+          # Focal loss
+        gamma = cfg.LOSS.FL_GAMMA  # focal loss gamma
+        if gamma > 0:
+            BCEcls, BCEobj = FocalLoss(self.BCEcls, gamma), FocalLoss(self.BCEobj, gamma)
+
         # lambdas: [cls, obj, iou, la_seg, ll_seg, ll_iou]
         self.box_gain = 0.05  # box loss gain
         self.cls_gain = 0.5  # classification loss gain
@@ -108,7 +115,7 @@ class MultiHeadLoss(nn.Module):
         lbox *=  self.obj_gain * s * self.lambdas[2]
    
         loss = lbox + lobj + lcls
-        loss = loss.squeeze()
+        # loss = loss.squeeze()
         # loss = lseg
         # return loss * bs, torch.cat((lbox, lobj, lcls, loss)).detach()
         # return loss, (lbox.item(), lobj.item(), lcls.item(), lseg_da.item(), lseg_ll.item(), liou_ll.item(), loss.item())
@@ -201,20 +208,8 @@ def get_loss(cfg, device):
     -loss: (MultiHeadLoss)
 
     """
-    # class loss criteria
-    BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(
-        [cfg.LOSS.CLS_POS_WEIGHT])).to(device)
-    # object loss criteria
-    BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(
-        [cfg.LOSS.OBJ_POS_WEIGHT])).to(device)
-
-    # Focal loss
-    gamma = cfg.LOSS.FL_GAMMA  # focal loss gamma
-    if gamma > 0:
-        BCEcls, BCEobj = FocalLoss(BCEcls, gamma), FocalLoss(BCEobj, gamma)
-
-    loss_list = [BCEcls, BCEobj]
-    loss = MultiHeadLoss(loss_list, cfg=cfg,
+  
+    loss = MultiHeadLoss(cfg=cfg, device=device,
                          lambdas=cfg.LOSS.MULTI_HEAD_LAMBDA)
     return loss
 

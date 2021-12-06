@@ -16,6 +16,7 @@ import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
 
+from ptflops import get_model_complexity_info
 import pytorch_model_summary
 from torchsummary import summary
 from tensorboardX import SummaryWriter
@@ -102,8 +103,15 @@ def main():
     
     print("load model to device")
 
-    model = get_net(cfg).to(device)
-    print(pytorch_model_summary.summary(model, torch.zeros(1, 3, 256, 640).cuda()))
+    model = get_net(cfg)
+    print(model)
+    # dummy_size = (3, 256, 640)
+    # macs, params = get_model_complexity_info(model, dummy_size, as_strings=True, print_per_layer_stat=True, verbose=True)
+                                
+    # print('computational complexity: ', macs)
+    # print('number of parameters: ', params)
+
+    # print(pytorch_model_summary.summary(model, torch.zeros(1, 3, 256, 640).cuda()))
     # summary(model, torch.zeros(3, 256, 640).cuda())
         
 

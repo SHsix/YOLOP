@@ -222,7 +222,10 @@ def detect(cfg,opt):
             t1 = time_synchronized()
             with torch.no_grad():
                 det_out, lane_out = model(imgs)
-                cls_out, _ = lane_out
+                if cfg.LANE.AUX_SEG == True:
+                    cls_out, _ = lane_out
+                else:
+                    cls_out = lane_out[0]
             t2 = time_synchronized()
             col_sample = np.linspace(0, 640 - 1,  cfg.LANE.GRIDING_NUM)
             col_sample_w = col_sample[1] - col_sample[0]
@@ -274,7 +277,7 @@ def detect(cfg,opt):
                 det[:,:4] = scale_coords(imgs.shape[2:], det[:,:4], vis.shape).round()
                 for *xyxy,conf,cls in reversed(det):
                     label_det_pred = f'{names[int(cls)]} {conf:.2f}'
-                    plot_one_box(xyxy, vis , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
+                    plot_one_box(xyxy, vis , label=label_det_pred, color=colors[int(cls)], line_thickness=4)
             
         
             cv2.imwrite('/home/YOLOP/inference/culane/a.jpg', vis)
@@ -310,7 +313,7 @@ def detect(cfg,opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211201_132747_lr_1e-03_b_80/ep008.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211201_022411_lr_1e-03_b_80/ep041.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-16-05-39/epoch-8.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-39.pth', help='model.pth path(s)')
     parser.add_argument('--source', type=str, default='inference/videos', help='source')  # file/folder   ex:inference/images

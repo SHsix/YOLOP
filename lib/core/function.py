@@ -166,8 +166,7 @@ def validate(epoch, config, val_loader, model, criterion, output_dir,
     confusion_matrix = ConfusionMatrix(
         nc=model.nc)  # detector confusion matrix
 
-    names = {k: v for k, v in enumerate(
-        model.names if hasattr(model, 'names') else model.module.names)}
+    names = '0'
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
     coco91class = coco80_to_coco91_class()
 
@@ -187,10 +186,8 @@ def validate(epoch, config, val_loader, model, criterion, output_dir,
     for batch_i, (img, _,  target, paths, shapes) in tqdm(enumerate(val_loader), total=len(val_loader)):
         if not config.DEBUG:
             img = img.to(device, non_blocking=True)
-            assign_target = []
-            for tgt in target:
-                assign_target.append(tgt.to(device))
-            target = assign_target
+
+            target = target.to(device)
             nb, _, height, width = img.shape  # batch size, channel, height, width
 
         with torch.no_grad():
@@ -210,17 +207,15 @@ def validate(epoch, config, val_loader, model, criterion, output_dir,
             inf_out, train_out = det_out
 
             # total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out), target, shapes,model)   #Compute loss
-            total_loss, head_losses = criterion(
-                (train_out, 0), target, shapes, model)  # Compute loss
+            total_loss = criterion(train_out, target, model)  # Compute loss
 
             losses.update(total_loss.item(), img.size(0))
 
             # NMS
             t = time_synchronized()
             # to pixels
-            target[0][:,
-                      2:] *= torch.Tensor([width, height, width, height]).to(device)
-            lb = [target[0][target[0][:, 0] == i, 1:]
+            target[:,2:] *= torch.Tensor([width, height, width, height]).to(device)
+            lb = [target[target[:, 0] == i, 1:]
                   for i in range(nb)] if save_hybrid else []  # for autolabelling
             output = non_max_suppression(
                 inf_out, conf_thres=config.TEST.NMS_CONF_THRESHOLD, iou_thres=config.TEST.NMS_IOU_THRESHOLD, labels=lb)
@@ -248,7 +243,7 @@ def validate(epoch, config, val_loader, model, criterion, output_dir,
                         cv2.imwrite(
                             save_dir+"/batch_{}_{}_det_pred.png".format(epoch, i), img_det)
 
-                        labels = target[0][target[0][:, 0] == i, 1:]
+                        labels = target[target[:, 0] == i, 1:]
                         # print(labels)
                         labels[:, 1:5] = xywh2xyxy(labels[:, 1:5])
                         if len(labels):
@@ -269,7 +264,7 @@ def validate(epoch, config, val_loader, model, criterion, output_dir,
         # target[0] ([img_id,cls,xyxy])
         for si, pred in enumerate(output):
             # all object in one image
-            labels = target[0][target[0][:, 0] == si, 1:]
+            labels = target[target[:, 0] == si, 1:]
             nl = len(labels)    # num of object
             tcls = labels[:, 0].tolist() if nl else []  # target class
             path = Path(paths[si])
@@ -410,12 +405,12 @@ def validate(epoch, config, val_loader, model, criterion, output_dir,
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
     # Plots
-    if config.TEST.PLOTS:
-        confusion_matrix.plot(save_dir=save_dir, names=list(names.values()))
-        if wandb and wandb.run:
-            wandb.log({"Images": wandb_images})
-            wandb.log({"Validation": [wandb.Image(str(f), caption=f.name)
-                      for f in sorted(save_dir.glob('test*.jpg'))]})
+    # if config.TEST.PLOTS:
+    #     confusion_matrix.plot(save_dir=save_dir, names=list(names.values()))
+    #     if wandb and wandb.run:
+    #         wandb.log({"Images": wandb_images})
+    #         wandb.log({"Validation": [wandb.Image(str(f), caption=f.name)
+    #                   for f in sorted(save_dir.glob('test*.jpg'))]})
 
     # Save JSON
     if config.TEST.SAVE_JSON and len(jdict):
