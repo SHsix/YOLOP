@@ -204,8 +204,8 @@ if __name__ == "__main__":
         dist_print('==> Resume model from ' + cfg.TRAIN.RESUME)
         resume_dict = torch.load(cfg.TRAIN.RESUME, map_location='cpu')
         net.load_state_dict(resume_dict['model'])
-        if 'optimizer' in resume_dict.keys():
-            optimizer.load_state_dict(resume_dict['optimizer'])
+        # if 'optimizer' in resume_dict.keys():
+        #     optimizer.load_state_dict(resume_dict['optimizer'])
         print(int(os.path.split(cfg.TRAIN.RESUME)[1][2:5]))
         resume_epoch = int(os.path.split(cfg.TRAIN.RESUME)[1][2:5]) + 1
     else:
@@ -221,6 +221,31 @@ if __name__ == "__main__":
     logger = get_logger(work_dir, cfg)
     cp_projects(args.auto_backup, work_dir)
     
+    print('Freeze Encoder and Lane detection head...')
+    for k, v in net.named_parameters():
+        v.requires_grad = False  # train all layers
+        if k.split('.')[0] in ['cls', 'aux_combine', 'aux_header2', 'aux_header3', 'aux_header4', 'pool', 'model']:
+            v.requires_grad = True
+        # if k.split(".")[1] in Encoder_para_idx + lane_Head_para_idx:
+        #     # print('freezing %s' % k)
+        #     v.requires_grad = False
+    loss_dict['weight'] = [1.0, 0, 1.0, 0, 0]
+    # for epoch in range(resume_epoch, resume_epoch + cfg.TRAIN.BRANCH_EPOCH):
+
+    #     train(net, train_loader, loss_dict, optimizer, scheduler, \
+    #         logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
+    #     save_model(net, optimizer, epoch ,work_dir, distributed)
+
+
+    # dist_print('finetune from ', cfg.TRAIN.FINETUNE)
+    #     state_all = torch.load(cfg.TRAIN.FINETUNE)['model']
+    #     state_clip = {}  # only use backbone parameters
+    #     for k,v in state_all.items():
+    #         if 'model' in k:
+    #             state_clip[k] = v
+    #     net.load_state_dict(state_clip, strict=False)
+
+#############
     for epoch in range(resume_epoch, cfg.TRAIN.END_EPOCH+1):
 
         # train(net, train_loader, loss_dict, optimizer, scheduler,logger, epoch, metric_dict, cfg.use_aux)

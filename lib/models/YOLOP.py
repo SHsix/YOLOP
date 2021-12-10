@@ -107,6 +107,23 @@ class MCnet(nn.Module):
         self.yolo = Detect(1, [[3, 9, 5, 11, 4, 20], [7, 18, 6, 39, 12, 31],
                                  [19, 50, 38, 81, 68, 157]], [128, 256, 512])
 
+        self.neck_ob1 = torch.nn.Sequential(
+            conv_bn_relu(128, 128, kernel_size=3, stride=1, padding=1) if backbone in ['34','18'] else conv_bn_relu(512, 128, kernel_size=3, stride=1, padding=1),
+            conv_bn_relu(128,128,3,padding=1),
+            conv_bn_relu(128,128,3,padding=1),
+            conv_bn_relu(128,128,3,padding=1),
+        )
+        self.neck_ob2 = torch.nn.Sequential(
+            conv_bn_relu(256, 128, kernel_size=3, stride=1, padding=1) if backbone in ['34','18'] else conv_bn_relu(1024, 128, kernel_size=3, stride=1, padding=1),
+            conv_bn_relu(128,128,3,padding=1),
+            conv_bn_relu(128,256,3,padding=1),
+        )
+        self.neck_ob3 = torch.nn.Sequential(
+            conv_bn_relu(512, 128, kernel_size=3, stride=1, padding=1) if backbone in ['34','18'] else conv_bn_relu(2048, 128, kernel_size=3, stride=1, padding=1),
+            conv_bn_relu(128,512,3,padding=1),
+        )
+        initialize_weights(self.neck_ob1,self.neck_ob2,self.neck_ob3)
+
         if self.use_aux:
             self.aux_header2 = torch.nn.Sequential(
                 conv_bn_relu(128, 128, kernel_size=3, stride=1, padding=1) if backbone in ['34','18'] else conv_bn_relu(512, 128, kernel_size=3, stride=1, padding=1),
@@ -134,11 +151,11 @@ class MCnet(nn.Module):
             initialize_weights(self.aux_header2,self.aux_header3,self.aux_header4,self.aux_combine)
         
         self.cls = torch.nn.Sequential(
-            torch.nn.Linear(8 * 8 * 20, 1024),
+            torch.nn.Linear(16 * 8 * 20, 1024),
             torch.nn.ReLU(),
             torch.nn.Linear(1024, self.total_dim),
         )
-        self.pool = torch.nn.Conv2d(512,8,1) if backbone in ['34','18'] else torch.nn.Conv2d(2048,8,1)
+        self.pool = torch.nn.Conv2d(512,16,1) if backbone in ['34','18'] else torch.nn.Conv2d(2048,8,1)
 
 
         # set stride、anchor for detector
@@ -168,7 +185,10 @@ class MCnet(nn.Module):
         if x.shape[-1] == 128:
             object_pred = self.yolo([x2, x3, fea])
             return [object_pred]
-        object_pred = self.yolo([x2, x3, fea])
+        ob_x2 = self.neck_ob1(x2)
+        ob_x3 = self.neck_ob2(x3)
+        ob_fea = self.neck_ob3(fea)
+        object_pred = self.yolo([ob_x2, ob_x3, ob_fea])
 
 
         if self.use_aux:
@@ -183,7 +203,7 @@ class MCnet(nn.Module):
         else:
             aux_seg = None
         
-        fea = self.pool(fea).view(-1, 8 * fea.shape[-1] * fea.shape[-2])
+        fea = self.pool(fea).view(-1, 16 * fea.shape[-1] * fea.shape[-2])
         group_cls = self.cls(fea).view(-1, *self.cls_dim)
         lane_pred.insert(0, group_cls)
 

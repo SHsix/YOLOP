@@ -115,7 +115,9 @@ class MultiHeadLoss(nn.Module):
         lbox *=  self.obj_gain * s * self.lambdas[2]
    
         loss = lbox + lobj + lcls
-        # loss = loss.squeeze()
+
+        # loss = torch.tensor(loss)
+        loss = loss.squeeze()
         # loss = lseg
         # return loss * bs, torch.cat((lbox, lobj, lcls, loss)).detach()
         # return loss, (lbox.item(), lobj.item(), lcls.item(), lseg_da.item(), lseg_ll.item(), liou_ll.item(), loss.item())

@@ -111,7 +111,7 @@ def main():
     # print('computational complexity: ', macs)
     # print('number of parameters: ', params)
 
-    # print(pytorch_model_summary.summary(model, torch.zeros(1, 3, 256, 640).cuda()))
+    print(pytorch_model_summary.summary(model, torch.zeros(1, 3, 256, 640)))
     # summary(model, torch.zeros(3, 256, 640).cuda())
         
 
