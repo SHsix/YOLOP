@@ -253,10 +253,6 @@ def detect(cfg,opt):
 
 
             t2 = time_synchronized()
-            # if i == 0:
-            #     print(det_out)
-            inf_out, _ = det_out
-            inf_time.update(t2-t1,imgs.size(0))
 
             # Apply NMS
             t3 = time_synchronized()
@@ -313,7 +309,7 @@ def detect(cfg,opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211201_022411_lr_1e-03_b_80/ep041.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211212_005520_lr_1e-03_b_80/ep002.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-16-05-39/epoch-8.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/BddDataset/_2021-11-08-10-25/epoch-39.pth', help='model.pth path(s)')
     parser.add_argument('--source', type=str, default='inference/videos', help='source')  # file/folder   ex:inference/images

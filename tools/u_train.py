@@ -221,15 +221,15 @@ if __name__ == "__main__":
     logger = get_logger(work_dir, cfg)
     cp_projects(args.auto_backup, work_dir)
     
-    print('Freeze Encoder and Lane detection head...')
-    for k, v in net.named_parameters():
-        v.requires_grad = False  # train all layers
-        if k.split('.')[0] in ['cls', 'aux_combine', 'aux_header2', 'aux_header3', 'aux_header4', 'pool', 'model']:
-            v.requires_grad = True
-        # if k.split(".")[1] in Encoder_para_idx + lane_Head_para_idx:
-        #     # print('freezing %s' % k)
-        #     v.requires_grad = False
-    loss_dict['weight'] = [1.0, 0, 1.0, 0, 0]
+    # print('Freeze Encoder and Lane detection head...')
+    # for k, v in net.named_parameters():
+    #     v.requires_grad = False  # train all layers
+    #     if k.split('.')[0] in ['cls', 'aux_combine', 'aux_header2', 'aux_header3', 'aux_header4', 'pool', 'model']:
+    #         v.requires_grad = True
+    #     # if k.split(".")[1] in Encoder_para_idx + lane_Head_para_idx:
+    #     #     # print('freezing %s' % k)
+    #     #     v.requires_grad = False
+    # loss_dict['weight'] = [1.0, 0, 1.0, 0, 0]
     # for epoch in range(resume_epoch, resume_epoch + cfg.TRAIN.BRANCH_EPOCH):
 
     #     train(net, train_loader, loss_dict, optimizer, scheduler, \
