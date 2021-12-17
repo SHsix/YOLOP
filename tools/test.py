@@ -45,7 +45,7 @@ def parse_args():
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/runs/CULANE/_2021-11-16-05-39/epoch-8.pth', help='model.pth path(s)')
     # parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211124_005915_lr_1e-03_b_80/ep051.pth', help='model.pth path(s)')
     # 
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/20211201_022411_lr_1e-03_b_80/ep041.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/home/YOLOP/log/final_resnet-34/ep049.pth', help='model.pth path(s)')
     parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, help='IOU threshold for NMS')
     args = parser.parse_args()
@@ -184,20 +184,20 @@ def main():
     # )
     # print('load data finished')
 
-    epoch = 0 #special for test
-    detect_results, total_loss, maps, times = validate(
-        epoch,cfg, test_loader, model, criterion,
-        final_output_dir, tb_log_dir, writer_dict,
-        logger, device
-    )
-    fi = fitness(np.array(detect_results).reshape(1, -1))
-    msg =   'Test:    Loss({loss:.3f})\n' \
-                      'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
-                      'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
-                          loss=total_loss, 
-                          p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
-                          t_inf=times[0], t_nms=times[1])
-    logger.info(msg)
+    # epoch = 0 #special for test
+    # detect_results, total_loss, maps, times = validate(
+    #     epoch,cfg, test_loader, model, criterion,
+    #     final_output_dir, tb_log_dir, writer_dict,
+    #     logger, device
+    # )
+    # fi = fitness(np.array(detect_results).reshape(1, -1))
+    # msg =   'Test:    Loss({loss:.3f})\n' \
+    #                   'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
+    #                   'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
+    #                       loss=total_loss, 
+    #                       p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
+    #                       t_inf=times[0], t_nms=times[1])
+    # logger.info(msg)
 
 
 

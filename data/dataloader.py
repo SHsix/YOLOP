@@ -23,7 +23,7 @@ def get_train_loader(cfg, batch_size, griding_num, dataset, use_aux, distributed
         normalize,    
     ])
     simu_transform = mytransforms.Compose2([
-        mytransforms.RandomRotate(3),
+        mytransforms.RandomRotate(4),
         mytransforms.RandomUDoffsetLABEL(88),
         mytransforms.RandomLROffsetLABEL(160)
     ])

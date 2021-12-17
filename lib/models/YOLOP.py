@@ -106,7 +106,22 @@ class MCnet(nn.Module):
         self.model = resnet(backbone, pretrained=pretrained)
         self.yolo = Detect(1, [[3, 9, 5, 11, 4, 20], [7, 18, 6, 39, 12, 31],
                                  [19, 50, 38, 81, 68, 157]], [128, 256, 512])
-
+        self.neck_ob1 = torch.nn.Sequential(
+            conv_bn_relu(128, 128, kernel_size=3, stride=1, padding=1) if backbone in ['34','18'] else conv_bn_relu(512, 128, kernel_size=3, stride=1, padding=1),
+            conv_bn_relu(128,128,3,padding=1),
+            conv_bn_relu(128,128,3,padding=1),
+            conv_bn_relu(128,128,3,padding=1),
+        )
+        self.neck_ob2 = torch.nn.Sequential(
+            conv_bn_relu(256, 128, kernel_size=3, stride=1, padding=1) if backbone in ['34','18'] else conv_bn_relu(1024, 128, kernel_size=3, stride=1, padding=1),
+            conv_bn_relu(128,128,3,padding=1),
+            conv_bn_relu(128,256,3,padding=1),
+        )
+        self.neck_ob3 = torch.nn.Sequential(
+            conv_bn_relu(512, 128, kernel_size=3, stride=1, padding=1) if backbone in ['34','18'] else conv_bn_relu(2048, 128, kernel_size=3, stride=1, padding=1),
+            conv_bn_relu(128,512,3,padding=1),
+        )
+        initialize_weights(self.neck_ob1,self.neck_ob2,self.neck_ob3)
 
         if self.use_aux:
             self.aux_header2 = torch.nn.Sequential(
@@ -166,6 +181,13 @@ class MCnet(nn.Module):
         lane_pred = []
         
         x2,x3,fea = self.model(x)
+        # ob_x2 = self.neck_ob1(x2)
+        # ob_x3 = self.neck_ob2(x3)
+        # ob_fea = self.neck_ob3(fea)
+        # if x.shape[-1] == 128:
+        #     object_pred = self.yolo([ob_x2, ob_x3, ob_fea])
+        #     return [object_pred]
+        # object_pred = self.yolo([ob_x2, ob_x3, ob_fea])
         if x.shape[-1] == 128:
             object_pred = self.yolo([x2, x3, fea])
             return [object_pred]

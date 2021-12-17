@@ -170,9 +170,9 @@ class RandomLROffsetLABEL(object):
             label[:,offset:] = label[:,0:w-offset]
             label[:,:offset] = 0
         if offset < 0:
-            offset = -offset
-            label[:,0:w-offset] = label[:,offset:]
-            label[:,w-offset:] = 0
+            real_offset = -offset
+            label[:,0:w-real_offset] = label[:,real_offset:]
+            label[:,w-real_offset:] = 0
 
         n = len(targets)
         if n:
@@ -223,9 +223,9 @@ class RandomUDoffsetLABEL(object):
             label[offset:,:] = label[0:h-offset,:]
             label[:offset,:] = 0
         if offset < 0:
-            offset = -offset
-            label[0:h-offset,:] = label[offset:,:]
-            label[h-offset:,:] = 0
+            real_offset = -offset
+            label[0:h-real_offset,:] = label[real_offset:,:]
+            label[h-real_offset:,:] = 0
 
 
 
@@ -249,5 +249,8 @@ class RandomUDoffsetLABEL(object):
                 real_offset = -offset
                 xy[:, [1, 3]] -= real_offset
                 xy[:, [1, 3]] = xy[:, [1, 3]].clip(0, h)
-
+                
+            i = _box_candidates(box1=targets[:, 1:5].T, box2=xy.T)
+            targets = targets[i]
+            targets[:, 1:5] = xy[i]
         return img,Image.fromarray(label), targets

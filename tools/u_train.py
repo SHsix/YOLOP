@@ -221,16 +221,20 @@ if __name__ == "__main__":
     logger = get_logger(work_dir, cfg)
     cp_projects(args.auto_backup, work_dir)
     
-    # print('Freeze Encoder and Lane detection head...')
+    # print('Freeze Lane detection head...')
     # for k, v in net.named_parameters():
     #     v.requires_grad = False  # train all layers
-    #     if k.split('.')[0] in ['cls', 'aux_combine', 'aux_header2', 'aux_header3', 'aux_header4', 'pool', 'model']:
+    #     # if k.split('.')[0] in ['cls', 'aux_combine', 'aux_header2', 'aux_header3', 'aux_header4', 'pool', 'model']:
+    #     if k.split('.')[0] in ['model', 'yolo', 'neck_ob1', 'neck_ob2', 'neck_ob3']:
+    #         print(k.split('.')[0])
     #         v.requires_grad = True
     #     # if k.split(".")[1] in Encoder_para_idx + lane_Head_para_idx:
     #     #     # print('freezing %s' % k)
     #     #     v.requires_grad = False
-    # loss_dict['weight'] = [1.0, 0, 1.0, 0, 0]
-    # for epoch in range(resume_epoch, resume_epoch + cfg.TRAIN.BRANCH_EPOCH):
+    # loss_dict['weight'] = [0.0, 0, 0.0, 0, 1.0]
+
+
+    # for epoch in range(resume_epoch, 15):
 
     #     train(net, train_loader, loss_dict, optimizer, scheduler, \
     #         logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
@@ -244,6 +248,14 @@ if __name__ == "__main__":
     #         if 'model' in k:
     #             state_clip[k] = v
     #     net.load_state_dict(state_clip, strict=False)
+
+    print('Train all')
+    for k, v in net.named_parameters():
+        v.requires_grad = True  # train all layers
+   
+    loss_dict['weight'] = [1.0, 0, 1.0, 0, 1.0]
+
+    
 
 #############
     for epoch in range(resume_epoch, cfg.TRAIN.END_EPOCH+1):

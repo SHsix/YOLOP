@@ -125,77 +125,94 @@ class AutoDriveDataset(Dataset):
 
         img = cv2.imread(data["image"], cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
- 
-
-        resized_shape = self.inputsize
-        if isinstance(resized_shape, list):
-            resized_shape = max(resized_shape)
-        h0, w0 = img.shape[:2]  # orig hw
-        r = resized_shape / max(h0, w0)  # resize image to img_size
-        if r != 1:  # always resize down, only resize up if training with augmentation
-            interp = cv2.INTER_AREA if r < 1 else cv2.INTER_LINEAR
-            img = cv2.resize(img, (int(w0 * r), int(h0 * r)), interpolation=interp)
-
-        h, w = img.shape[:2]
-        
-        img, ratio, pad = letterbox_for_img(img, resized_shape, auto=True, scaleup=self.is_train)
-        shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
-        # ratio = (w / w0, h / h0)
-        # print(resized_shape)
-        
-        det_label = data["ob_label"]
-        labels=[]
-        
-        if det_label.size > 0:
-            # Normalized xywh to pixel xyxy format
-            labels = det_label.copy()
-            labels[:, 1] = ratio[0] * w * (det_label[:, 1] - det_label[:, 3] / 2) + pad[0]  # pad width
-            labels[:, 2] = ratio[1] * h * (det_label[:, 2] - det_label[:, 4] / 2) + pad[1]  # pad height
-            labels[:, 3] = ratio[0] * w * (det_label[:, 1] + det_label[:, 3] / 2) + pad[0]
-            labels[:, 4] = ratio[1] * h * (det_label[:, 2] + det_label[:, 4] / 2) + pad[1]
- 
-  
-
+        det_label = data["ob_label"] # xywh
 
         if self.is_train:
-            # combination = (img, seg_label, lane_label)
-            # img, labels = random_perspective(
-            #     img=img,
-            #     targets=labels,
-            #     degrees=self.cfg.DATASET.ROT_FACTOR,
-            #     translate=self.cfg.DATASET.TRANSLATE,
-            #     scale=self.cfg.DATASET.SCALE_FACTOR,
-            #     shear=self.cfg.DATASET.SHEAR
-            # )
-            # #print(labels.shape)
-            # augment_hsv(img, hgain=self.cfg.DATASET.HSV_H, sgain=self.cfg.DATASET.HSV_S, vgain=self.cfg.DATASET.HSV_V)
-            # img, seg_label, labels = cutout(combination=combination, labels=labels)
             lane_label = loader_func(data["lane_label"])
-            lane_label = lane_label.resize((640, 256))
-            if self.simu_transform is not None:
-                img, lane_label, labels = self.simu_transform(img,lane_label, labels)
-
-
-            if len(labels):
-                # convert xyxy to xywh
-                labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
-
-                # Normalize coordinates 0 - 1
-                labels[:, [2, 4]] /= img.shape[0]  # height
-                labels[:, [1, 3]] /= img.shape[1]  # width
-        
-        else:
-            img_name = data["image_name"]
-            if len(labels):
-                # convert xyxy to xywh
-                labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
-
-                # Normalize coordinates 0 - 1
-                labels[:, [2, 4]] /= img.shape[0]  # height
-                labels[:, [1, 3]] /= img.shape[1]  # width
+            origin_labels=[]
+            h0, w0 = img.shape[:2]  # orig hw
             
+            if det_label.size > 0:
+                # Normalized xywh to pixel xyxy format
+                origin_labels = det_label.copy()
+                origin_labels[:, 1] = w0 * (det_label[:, 1] - det_label[:, 3] / 2) 
+                origin_labels[:, 2] = h0 * (det_label[:, 2] - det_label[:, 4] / 2)  
+                origin_labels[:, 3] = w0 * (det_label[:, 1] + det_label[:, 3] / 2)
+                origin_labels[:, 4] = h0 * (det_label[:, 2] + det_label[:, 4] / 2)
+            # img = cv2.circle(img, (int(origin_labels[0, 1]), int(origin_labels[0, 2])), 5, (255, 0, 0), 3)
+            # img = cv2.circle(img, (int(origin_labels[0, 3]), int(origin_labels[0, 4])), 5, (255, 0, 0), 3)
+            # cv2.imwrite('/home/YOLOP/before.jpg', img)
+            if self.simu_transform is not None:
+                img, lane_label, origin_labels = self.simu_transform(img,lane_label, origin_labels)
+
+            # img = cv2.circle(img, (int(origin_labels[0, 1]), int(origin_labels[0, 2])), 5, (0, 255, 0), 3)
+            # img = cv2.circle(img, (int(origin_labels[0, 3]), int(origin_labels[0, 4])), 5, (0, 255, 0), 3)
+            # cv2.imwrite('/home/YOLOP/After.jpg', img)
+
+            resized_shape = self.inputsize
+            if isinstance(resized_shape, list):
+                resized_shape = max(resized_shape)
+
+            r = resized_shape / max(h0, w0)  # resize image to img_size
+            if r != 1:  # always resize down, only resize up if training with augmentation
+                interp = cv2.INTER_AREA if r < 1 else cv2.INTER_LINEAR
+                img = cv2.resize(img, (int(w0 * r), int(h0 * r)), interpolation=interp)
+            
+            h, w = img.shape[:2]
+
+            img, ratio, pad = letterbox_for_img(img, resized_shape, auto=True, scaleup=self.is_train)
+            shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
+            # ratio = (w / w0, h / h0)
+            # print(resized_shape)
+            
+            labels = []
+            if len(origin_labels):
+                # Add the pad to origin label
+                labels = origin_labels.copy()
+                labels[:, 1] = (w / w0) * origin_labels[:, 1] + pad[0]  # pad width
+                labels[:, 2] = (h / h0) * origin_labels[:, 2] + pad[1]  # pad width
+                labels[:, 3] = (w / w0) * origin_labels[:, 3] + pad[0]  # pad width
+                labels[:, 4] = (h / h0) * origin_labels[:, 4] + pad[1]  # pad width
+
+        else:
+            h0, w0 = img.shape[:2] 
+            resized_shape = self.inputsize
+            if isinstance(resized_shape, list):
+                resized_shape = max(resized_shape)
+
+            r = resized_shape / max(h0, w0)  # resize image to img_size
+            if r != 1:  # always resize down, only resize up if training with augmentation
+                interp = cv2.INTER_AREA if r < 1 else cv2.INTER_LINEAR
+                img = cv2.resize(img, (int(w0 * r), int(h0 * r)), interpolation=interp)
+            
+            h, w = img.shape[:2]
+
+            img, ratio, pad = letterbox_for_img(img, resized_shape, auto=True, scaleup=self.is_train)
+            shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
 
+
+            det_label = data["ob_label"] # xywh
+            labels = []
+            if det_label.size > 0:
+                # Normalized xywh to pixel xyxy format
+                labels = det_label.copy()
+                labels[:, 1] = ratio[0] * w * (det_label[:, 1] - det_label[:, 3] / 2) + pad[0]  # pad width
+                labels[:, 2] = ratio[1] * h * (det_label[:, 2] - det_label[:, 4] / 2) + pad[1]  # pad height
+                labels[:, 3] = ratio[0] * w * (det_label[:, 1] + det_label[:, 3] / 2) + pad[0]
+                labels[:, 4] = ratio[1] * h * (det_label[:, 2] + det_label[:, 4] / 2) + pad[1]
+ 
+            img_name = data["image_name"]
+
+
+        if len(labels):
+            # convert xyxy to xywh
+            labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
+
+            # Normalize coordinates 0 - 1
+            labels[:, [2, 4]] /= img.shape[0]  # height
+            labels[:, [1, 3]] /= img.shape[1]  # width
+    
 
         labels_out = torch.zeros((len(labels), 6))
         if len(labels):
@@ -218,7 +235,25 @@ class AutoDriveDataset(Dataset):
             cls_label = self._grid_pts(lane_pts, self.griding_num, w)
             cls_label = self.Tensor(cls_label)
             cls_label = cls_label.squeeze()
-        
+
+            lane_label = np.array(lane_label)
+            h0, w0 = lane_label.shape[:2] 
+            resized_shape = self.inputsize
+            if isinstance(resized_shape, list):
+                resized_shape = max(resized_shape)
+
+            r = resized_shape / max(h0, w0)  # resize image to img_size
+            if r != 1:  # always resize down, only resize up if training with augmentation
+                interp = cv2.INTER_AREA if r < 1 else cv2.INTER_LINEAR
+                lane_label = cv2.resize(lane_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
+            
+            h, w = lane_label.shape[:2]
+
+            lane_label, ratio, pad = letterbox_for_img(lane_label, resized_shape, auto=True, scaleup=self.is_train, color=(0, 0, 0))
+            shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
+            cv2.imwrite('/home/YOLOP/test.jpg', lane_label)
+
+            lane_label = Image.fromarray(lane_label)
             assert self.segment_transform is not None
             seg_label = self.segment_transform(lane_label)
 
