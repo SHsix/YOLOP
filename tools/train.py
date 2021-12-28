@@ -1,39 +1,34 @@
+import torch, os, sys, datetime
+import numpy as np
 import argparse
-import os, sys
 import math
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 
-import pprint
-import time
-import torch
-import torch.nn.parallel
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.cuda import amp
-import torch.distributed as dist
-import torch.backends.cudnn as cudnn
-import torch.optim
-import torch.utils.data
-import torch.utils.data.distributed
-import torchvision.transforms as transforms
-import numpy as np
-
-from tensorboardX import SummaryWriter
-
+from utils.dist_utils import dist_print, dist_tqdm
+from utils.factory import get_metric_dict, get_loss_dict, get_scheduler#, get_optimizer
+from utils.metrics import update_metrics, reset_metrics
+from lib.utils.utils import get_optimizer
+from utils.common import merge_config, save_model, cp_projects
+from utils.common import get_work_dir, get_logger
 
 from lib.config import cfg
 from lib.config import update_config
-from lib.core.loss import get_loss
-from lib.core.function import train
-from lib.core.function import validate
-from lib.core.general import fitness
 from lib.models import get_net
-from lib.utils import is_parallel
-from lib.utils.utils import get_optimizer
-from lib.utils.utils import save_checkpoint
-from lib.utils.utils import create_logger, select_device
-from lib.utils import run_anchor
 
+from data.dataloader import get_train_loader
+import time
+
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Multitask network')
@@ -65,228 +60,246 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
+
+    parser.add_argument('--auto_backup', action='store_true', help='automatically backup current code in the log path')
+
     args = parser.parse_args()
 
     return args
+def inference(net, img, cls_label, seg_label, target, use_aux):
+    if use_aux:
+        target, cls_label, seg_label = target.cuda(), cls_label.long().cuda(), seg_label.long().cuda()
+        det_out, lane_out = net(img)
+        cls_out, seg_out = lane_out
+
+        return {'cls_out': cls_out, 'cls_label': cls_label, \
+                'seg_out':seg_out, 'seg_label': seg_label, \
+                'det_out': det_out, 'target':target, 'model' : net
+                }
+    else:
+        det_out, lane_out = net(img)
+        cls_out, seg_out = lane_out
+
+        return {'cls_out': cls_out, 'cls_label': cls_label, \
+                'det_out': det_out, 'target':target, 'model' : net
+                }
 
 
-def main():
-    # set all the configurations
+def resolve_val_data(results, use_aux):
+    results['cls_out'] = torch.argmax(results['cls_out'], dim=1)
+    if use_aux:
+        results['seg_out'] = torch.argmax(results['seg_out'], dim=1)
+    return results
+
+
+def calc_loss(loss_dict, results, logger, global_step):
+    loss = 0
+
+    for i in range(len(loss_dict['name'])):
+
+        data_src = loss_dict['data_src'][i]
+
+        datas = [results[src] for src in data_src]
+
+        loss_cur = loss_dict['op'][i](*datas)
+
+        if global_step % 20 == 0:
+            logger.add_scalar('loss/'+loss_dict['name'][i], loss_cur, global_step)
+
+        loss += loss_cur * loss_dict['weight'][i]
+    return loss
+
+
+def train(net, data_loader, loss_dict, optimizer, scheduler,logger, epoch, metric_dict, use_aux, device):
+    net.train()
+    progress_bar = dist_tqdm(train_loader)
+    t_data_0 = time.time()
+    for b_idx, (img, labels) in enumerate(progress_bar):
+
+        target, cls_label, seg_label = labels
+        img = img.to(device, non_blocking=True)
+
+        t_data_1 = time.time()
+        reset_metrics(metric_dict)
+        global_step = epoch * len(data_loader) + b_idx
+
+        t_net_0 = time.time()
+        results = inference(net, img, cls_label, seg_label, target, use_aux)
+
+        loss = calc_loss(loss_dict, results, logger, global_step)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        scheduler.step(global_step)
+        t_net_1 = time.time()
+
+        results = resolve_val_data(results, use_aux)
+
+        update_metrics(metric_dict, results)
+        if global_step % 20 == 0:
+            for me_name, me_op in zip(metric_dict['name'], metric_dict['op']):
+                logger.add_scalar('metric/' + me_name, me_op.get(), global_step=global_step)
+        logger.add_scalar('meta/lr', optimizer.param_groups[0]['lr'], global_step=global_step)
+
+        if hasattr(progress_bar,'set_postfix'):
+            kwargs = {me_name: '%.3f' % me_op.get() for me_name, me_op in zip(metric_dict['name'], metric_dict['op'])}
+            progress_bar.set_postfix(loss = '%.3f' % float(loss), 
+                                    data_time = '%.3f' % float(t_data_1 - t_data_0), 
+                                    net_time = '%.3f' % float(t_net_1 - t_net_0), 
+                                    **kwargs)
+        t_data_0 = time.time()
+        
+
+
+if __name__ == "__main__":
+    torch.backends.cudnn.benchmark = True
+
     args = parse_args()
     update_config(cfg, args)
 
-    # Set DDP variables
-    world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
-    global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
+    work_dir = get_work_dir(cfg)
 
-    rank = global_rank
-    #print(rank)
-    # TODO: handle distributed training logger
-    # set the logger, tb_log_dir means tensorboard logdir
+    distributed = False
+    if 'WORLD_SIZE' in os.environ:
+        distributed = int(os.environ['WORLD_SIZE']) > 1
 
-    logger, final_output_dir, tb_log_dir = create_logger(
-        cfg, cfg.LOG_DIR, 'train', rank=rank)
-
-    if rank in [-1, 0]:
-        logger.info(pprint.pformat(args))
-        logger.info(cfg)
-
-        writer_dict = {
-            'writer': SummaryWriter(log_dir=tb_log_dir),
-            'train_global_steps': 0,
-            'valid_global_steps': 0,
-        }
-    else:
-        writer_dict = None
-
-    # cudnn related setting
-    cudnn.benchmark = cfg.CUDNN.BENCHMARK
-    torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
-    torch.backends.cudnn.enabled = cfg.CUDNN.ENABLED
-
-    # bulid up model
-    # start_time = time.time()
-    print("begin to bulid up model...")
-    # DP mode
-    device = select_device(logger, batch_size=cfg.TRAIN.BATCH_SIZE_PER_GPU* len(cfg.GPUS)) if not cfg.DEBUG \
-        else select_device(logger, 'cpu')
-
-
-    if args.local_rank != -1:
-        assert torch.cuda.device_count() > args.local_rank
+    if distributed:
         torch.cuda.set_device(args.local_rank)
-        device = torch.device('cuda', args.local_rank)
-        dist.init_process_group(backend='nccl', init_method='env://')  # distributed backend
+        torch.distributed.init_process_group(backend='nccl', init_method='env://')
+
+    dist_print(datetime.datetime.now().strftime('[%Y/%m/%d %H:%M:%S]') + ' start training...')
+    dist_print(cfg)
+   
+
+
+    train_loader, cls_num_per_lane = get_train_loader(cfg, cfg.TRAIN.BATCH_SIZE, \
+        cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
     
-    print("load model to device")
-    print(device)
-    model = get_net(cfg).to(device)
+    device = 'cuda:0'
+    net = get_net(cfg).to(device)
 
-    # print("load finished")
-    #model = model.to(device)
-    # print("finish build model")
+    # assign model params
+    net.gr = 1.0
+    net.nc = 1
+    # net = parsingNet(pretrained = True, backbone=cfg.backbone,cls_dim = (cfg.griding_num+1,cls_num_per_lane, cfg.num_lanes),use_aux=cfg.use_aux).cuda()
     
 
-    # define loss function (criterion) and optimizer
-    criterion = get_loss(cfg, device=device)
-    optimizer = get_optimizer(cfg, model)
+    if distributed:
+        net = torch.nn.parallel.DistributedDataParallel(net, device_ids = [args.local_rank])
+    
+    # optimizer = get_optimizer(net, cfg)
+    optimizer = get_optimizer(cfg, net)
+    
 
+    if cfg.TRAIN.FINETUNE is not None:
+        dist_print('finetune from ', cfg.TRAIN.FINETUNE)
+        state_all = torch.load(cfg.TRAIN.FINETUNE)['model']
+        state_clip = {}  # only use backbone parameters
+        for k,v in state_all.items():
+            if 'model' in k:
+                state_clip[k] = v
+        net.load_state_dict(state_clip, strict=False)
 
-    # load checkpoint model
-    best_perf = 0.0
-    best_model = False
-    last_epoch = -1
-
-    Encoder_para_idx = [str(i) for i in range(0, 17)]
-    Det_Head_para_idx = [str(i) for i in range(17, 25)]
-    lane_Head_para_idx = [str(i) for i in range(25, 35)]
-
+    if cfg.TRAIN.RESUME is not None:
+        dist_print('==> Resume model from ' + cfg.TRAIN.RESUME)
+        resume_dict = torch.load(cfg.TRAIN.RESUME, map_location='cpu')
+        net.load_state_dict(resume_dict['model'])
+        # if 'optimizer' in resume_dict.keys():
+        #     optimizer.load_state_dict(resume_dict['optimizer'])
+        print(int(os.path.split(cfg.TRAIN.RESUME)[1][2:5]))
+        resume_epoch = int(os.path.split(cfg.TRAIN.RESUME)[1][2:5]) + 1
+    else:
+        resume_epoch = 0
 
     lf = lambda x: ((1 + math.cos(x * math.pi / cfg.TRAIN.END_EPOCH)) / 2) * \
                    (1 - cfg.TRAIN.LRF) + cfg.TRAIN.LRF  # cosine
-    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
-    begin_epoch = cfg.TRAIN.BEGIN_EPOCH
-
-    if rank in [-1, 0]:
-        checkpoint_file = os.path.join(
-            os.path.join(cfg.LOG_DIR, cfg.DATASET.DATASET), 'checkpoint.pth'
-        )
-        
-        # Section for getting any pretrained model
-        
-        if os.path.exists(cfg.MODEL.PRETRAINED):
-            logger.info("=> loading model '{}'".format(cfg.MODEL.PRETRAINED))
-            checkpoint = torch.load(cfg.MODEL.PRETRAINED)
-            begin_epoch = checkpoint['epoch']
-            # best_perf = checkpoint['perf']
-            last_epoch = checkpoint['epoch']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            logger.info("=> loaded checkpoint '{}' (epoch {})".format(
-                cfg.MODEL.PRETRAINED, checkpoint['epoch']))
-            #cfg.NEED_AUTOANCHOR = False     #disable autoanchor
-        
-        if os.path.exists(cfg.MODEL.PRETRAINED_DET):
-            logger.info("=> loading model weight in det branch from '{}'".format(cfg.MODEL.PRETRAINED))
-            det_idx_range = [str(i) for i in range(0,25)]
-            model_dict = model.state_dict()
-            checkpoint_file = cfg.MODEL.PRETRAINED_DET
-            checkpoint = torch.load(checkpoint_file)
-            begin_epoch = checkpoint['epoch']
-            last_epoch = checkpoint['epoch']
-            checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
-            model_dict.update(checkpoint_dict)
-            model.load_state_dict(model_dict)
-            logger.info("=> loaded det branch checkpoint '{}' ".format(checkpoint_file))
-        
-        
-        # Resume the training
-        if cfg.AUTO_RESUME and os.path.exists(checkpoint_file):
-            logger.info("=> loading checkpoint '{}'".format(checkpoint_file))
-            checkpoint = torch.load(checkpoint_file)
-            begin_epoch = checkpoint['epoch']
-            # best_perf = checkpoint['perf']
-            last_epoch = checkpoint['epoch']
-            model.load_state_dict(checkpoint['state_dict'])
-            # optimizer = get_optimizer(cfg, model)
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            logger.info("=> loaded checkpoint '{}' (epoch {})".format(
-                checkpoint_file, checkpoint['epoch']))
-            #cfg.NEED_AUTOANCHOR = False     #disable autoanchor
-        # model = model.to(device)
-
-    if torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
-        # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
-        
-        # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
-    # # DDP mode
-    if rank != -1:
-        model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
+    # scheduler = get_scheduler(optimizer, cfg, len(train_loader))
+    dist_print(len(train_loader))
+    metric_dict = get_metric_dict(cfg)
+    loss_dict = get_loss_dict(cfg, device)
+    logger = get_logger(work_dir, cfg)
+    cp_projects(args.auto_backup, work_dir)
+    
+    # print('Freeze Lane detection head...')
+    # for k, v in net.named_parameters():
+    #     v.requires_grad = False  # train all layers
+    #     # if k.split('.')[0] in ['cls', 'aux_combine', 'aux_header2', 'aux_header3', 'aux_header4', 'pool', 'model']:
+    #     if k.split('.')[0] in ['model', 'yolo', 'neck_ob1', 'neck_ob2', 'neck_ob3']:
+    #         print(k.split('.')[0])
+    #         v.requires_grad = True
+    #     # if k.split(".")[1] in Encoder_para_idx + lane_Head_para_idx:
+    #     #     # print('freezing %s' % k)
+    #     #     v.requires_grad = False
+    # loss_dict['weight'] = [0.0, 0, 0.0, 0, 1.0]
 
 
-    # assign model params
-    model.gr = 1.0
-    model.nc = 1
-    # print('bulid model finished')
+    # for epoch in range(resume_epoch, 15):
+
+    #     train(net, train_loader, loss_dict, optimizer, scheduler, \
+    #         logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
+    #     save_model(net, optimizer, epoch ,work_dir, distributed)
+
+
+    # dist_print('finetune from ', cfg.TRAIN.FINETUNE)
+    #     state_all = torch.load(cfg.TRAIN.FINETUNE)['model']
+    #     state_clip = {}  # only use backbone parameters
+    #     for k,v in state_all.items():
+    #         if 'model' in k:
+    #             state_clip[k] = v
+    #     net.load_state_dict(state_clip, strict=False)
+
+    print('Train all')
+    for k, v in net.named_parameters():
+        v.requires_grad = True  # train all layers
+   
+    loss_dict['weight'] = [1.0, 0, 1.0, 0, 1.0]
 
     
-    # lane parts
-    from data.dataloader import get_train_loader
+
+#############
+    for epoch in range(resume_epoch, cfg.TRAIN.END_EPOCH+1):
+
+        # train(net, train_loader, loss_dict, optimizer, scheduler,logger, epoch, metric_dict, cfg.use_aux)
+        train(net, train_loader, loss_dict, optimizer, scheduler, \
+            logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
+        save_model(net, optimizer, epoch ,work_dir, distributed)
+
+    # Encoder_para_idx = [str(i) for i in range(0, 17)]
+    # Det_Head_para_idx = [str(i) for i in range(17, 25)]
+    # lane_Head_para_idx = [str(i) for i in range(25, 27)]
+
+
+
+    # print('Freeze Encoder and Lane detection head...')
+    # for k, v in net.named_parameters():
+    #     v.requires_grad = True  # train all layers
+    #     if k.split(".")[1] in Encoder_para_idx + lane_Head_para_idx:
+    #         # print('freezing %s' % k)
+    #         v.requires_grad = False
+    # loss_dict['weight'] = [0, 0, 0, 0, 1.0]
+
+    # resume_epoch = cfg.TRAIN.END_EPOCH+1
+    # for epoch in range(resume_epoch, resume_epoch + cfg.TRAIN.BRANCH_EPOCH):
+
+    #     train(net, train_loader, loss_dict, optimizer, scheduler, \
+    #         logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
+    #     save_model(net, optimizer, epoch ,work_dir, distributed)
+
+
+
+    # print('Freeze Encoder and Object detection head...')
+    # for k, v in net.named_parameters():
+    #     v.requires_grad = True  # train all layers
+    #     if k.split(".")[1] in Encoder_para_idx + Det_Head_para_idx:
+    #         # print('freezing %s' % k)
+    #         v.requires_grad = False
+    # loss_dict['weight'] = [1.0, 0, 1.0, 0, 0]
+
+    # resume_epoch = resume_epoch + cfg.TRAIN.BRANCH_EPOCH
+    # for epoch in range(resume_epoch, resume_epoch + cfg.TRAIN.BRANCH_EPOCH):
         
-    from utils.dist_utils import dist_print, dist_tqdm, is_main_process, DistSummaryWriter
-    from utils.factory import get_metric_dict, get_loss_dict
-    from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU, update_metrics, reset_metrics
-    
-    distributed  = world_size > 1
-    print("begin to load lane data")              
-    lane_train_loader, cls_num_per_lane = get_train_loader(cfg, cfg.LANE.BATCH_SIZE, \
-        cfg.LANE.GRIDING_NUM, cfg.LANE.DATASET, cfg.LANE.AUX_SEG, distributed, cfg.LANE.NUM_LANES)
-    
-    lane_optimizer = get_optimizer(cfg, model)
-    lane_metric_dict = get_metric_dict(cfg)
-    lane_loss_dict = get_loss_dict(cfg, device)
-    
-    print('=> start training...')
-    
-    for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
-        
-        # logger.info('freeze object detection head...')
-        # for k, v in model.named_parameters():
-        #     v.requires_grad = True  # train all layers
-        #     if k.split(".")[1] in Det_Head_para_idx:
-        #         # print('freezing %s' % k)
-        #         v.requires_grad = False
-
-        
-        train(model, lane_train_loader, lane_loss_dict, lane_optimizer, lr_scheduler,logger, epoch, lane_metric_dict, cfg.LANE.AUX_SEG, device)
-            # if perf_indicator >= best_perf:
-            #     best_perf = perf_indicator
-            #     best_model = True
-            # else:
-            #     best_model = False
-
-        # save checkpoint model and best model
-        if rank in [-1, 0]:
-            savepath = os.path.join(final_output_dir, f'epoch-{epoch}.pth')
-            logger.info('=> saving checkpoint to {}'.format(savepath))
-            save_checkpoint(
-                epoch=epoch,
-                name=cfg.MODEL.NAME,
-                model=model,
-                # 'best_state_dict': model.module.state_dict(),
-                # 'perf': perf_indicator,
-                optimizer=optimizer,
-                output_dir=final_output_dir,
-                filename=f'epoch-{epoch}.pth'
-            )
-            save_checkpoint(
-                epoch=epoch,
-                name=cfg.MODEL.NAME,
-                model=model,
-                # 'best_state_dict': model.module.state_dict(),
-                # 'perf': perf_indicator,
-                optimizer=optimizer,
-                output_dir=os.path.join(cfg.LOG_DIR, cfg.DATASET.DATASET),
-                filename='checkpoint.pth'
-            )
-            
-
-    # # save final model
-    # if rank in [-1, 0]:
-    #     final_model_state_file = os.path.join(
-    #         final_output_dir, 'final_state.pth'
-    #     )
-    #     logger.info('=> saving final model state to {}'.format(
-    #         final_model_state_file)
-    #     )
-    #     model_state = model.module.state_dict() if is_parallel(model) else model.state_dict()
-    #     torch.save(model_state, final_model_state_file)
-    #     writer_dict['writer'].close()
-    # else:
-    #     dist.destroy_process_group()
-
-
-
-if __name__ == '__main__':
-    main()
+    #     train(net, train_loader, loss_dict, optimizer, scheduler, \
+    #         logger, epoch, metric_dict, cfg.LANE.AUX_SEG, device)
+    #     save_model(net, optimizer, epoch ,work_dir, distributed)
+    logger.close()

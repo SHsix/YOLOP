@@ -1,1 +1,1 @@
-from .YOLOP import get_net
+from .Multinet import get_net
